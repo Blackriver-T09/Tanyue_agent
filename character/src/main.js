@@ -681,6 +681,15 @@ function loadFbxMotion(name) {
     currentMotionAction.clampWhenFinished = true;
     currentMotionAction.fadeIn(0.15).play();
     currentMixer.timeScale = controlsState.motionSpeed;
+    if (!controlsState.motionLoop && name !== defaultIdleMotion) {
+      const mixer = currentMixer;
+      mixer.addEventListener('finished', () => {
+        if (currentMixer !== mixer) return;
+        window.setTimeout(() => {
+          if (currentMixer === mixer) playIdleMotion();
+        }, 250);
+      });
+    }
     resetFace();
     setStatus(`Playing FBX ${fileName} (${clip.tracks.length} tracks)`);
   });
@@ -901,10 +910,18 @@ function applyFace(time) {
 async function loadVrm() {
   const loader = new GLTFLoader();
   loader.register((parser) => new VRMLoaderPlugin(parser));
-
-  loader.load(
+  const modelParam = pageParams.get('model');
+  const modelUrls = [
+    modelParam ? `./models/${encodeURIComponent(modelParam)}` : null,
+    './models/LiuRuYan.vrm',
+    './models/test_02.vrm',
     './models/test_01.vrm',
-    (gltf) => {
+  ].filter(Boolean);
+
+  for (const modelUrl of modelUrls) {
+    try {
+      setStatus(`Loading ${modelUrl.split('/').pop()}...`);
+      const gltf = await loader.loadAsync(modelUrl);
       const vrm = gltf.userData.vrm;
       VRMUtils.removeUnnecessaryVertices(gltf.scene);
       if (VRMUtils.combineSkeletons) {
@@ -920,17 +937,13 @@ async function loadVrm() {
       frameVrm(currentVrm);
       setStatus('VRM ready');
       loadMotionManifest();
-    },
-    (progress) => {
-      if (progress.total > 0) {
-        setStatus(`Loading VRM ${Math.round((progress.loaded / progress.total) * 100)}%`);
-      }
-    },
-    (error) => {
-      console.error(error);
-      setStatus('Failed to load VRM');
-    },
-  );
+      return;
+    } catch (error) {
+      console.warn(`Could not load VRM model ${modelUrl}.`, error);
+    }
+  }
+
+  setStatus('Failed to load VRM');
 }
 
 const clock = new THREE.Clock();

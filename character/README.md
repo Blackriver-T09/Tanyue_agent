@@ -4,10 +4,16 @@
 
 `character` 是 Tanyue 数字人展示层。它用浏览器加载 VRM 模型，播放 FBX 动作，并把表情、姿态、动作、口型同步暴露给上层 Agent。
 
-当前模型：
+当前模型默认优先加载：
 
 ```text
-character/models/test_01.vrm
+character/models/LiuRuYan.vrm
+```
+
+如果需要临时指定其他模型，可以在角色页面 URL 加参数，例如：
+
+```text
+http://127.0.0.1:8894/character/?model=test_02.vrm
 ```
 
 ## 架构
@@ -322,10 +328,16 @@ avatar.set_lip_sync_level(0.62)
 
 `character` is the browser-based VRM presentation layer for Tanyue. It loads the VRM model, retargets FBX motions at runtime, and exposes pose, expression, motion, and lip-sync controls to the upper Agent.
 
-Current model:
+Default model:
 
 ```text
-character/models/test_01.vrm
+character/models/LiuRuYan.vrm
+```
+
+Use a URL parameter to test another model:
+
+```text
+http://127.0.0.1:8894/character/?model=test_02.vrm
 ```
 
 ## Architecture

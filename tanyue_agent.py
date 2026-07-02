@@ -91,7 +91,7 @@ def create_app():
         return {"url": livekit_url, "token": token, "room": room, "identity": identity}
 
     @app.post("/api/dispatch-agent")
-    async def dispatch_agent(room: str = "tanyue-room") -> dict[str, str]:
+    async def dispatch_agent(room: str = "tanyue-room", replace: bool = True) -> dict[str, str | list[str]]:
         agent_name = os.environ.get("TANYUE_LIVEKIT_AGENT_NAME", "tanyue")
         livekit = LiveKitAPI(
             require_env("LIVEKIT_URL"),
@@ -99,13 +99,22 @@ def create_app():
             require_env("LIVEKIT_API_SECRET"),
         )
         try:
+            deleted_dispatches: list[str] = []
             for item in await livekit.agent_dispatch.list_dispatch(room):
-                if item.agent_name == agent_name:
+                if item.agent_name == agent_name or not item.agent_name:
+                    if replace:
+                        try:
+                            await livekit.agent_dispatch.delete_dispatch(item.id, room)
+                            deleted_dispatches.append(item.id)
+                        except Exception:
+                            pass
+                        continue
                     return {
                         "status": "existing",
                         "agent_name": agent_name,
                         "room": room,
                         "dispatch_id": item.id,
+                        "deleted_dispatches": deleted_dispatches,
                     }
             dispatch = await livekit.agent_dispatch.create_dispatch(
                 CreateAgentDispatchRequest(
@@ -114,10 +123,11 @@ def create_app():
                 )
             )
             return {
-                "status": "dispatched",
+                "status": "replaced" if deleted_dispatches else "dispatched",
                 "agent_name": agent_name,
                 "room": room,
                 "dispatch_id": dispatch.id,
+                "deleted_dispatches": deleted_dispatches,
             }
         finally:
             await livekit.aclose()

@@ -203,19 +203,22 @@ class TanyueAssistant:
                 yield reply
 
             async def tts_node(self, text, model_settings):
-                self._publish_voice_state(True)
+                await self._publish_voice_state(True)
                 try:
                     async for frame in self._aliyun_tts.synthesize_frames(text):
                         yield frame
                 finally:
-                    self._publish_voice_state(False)
-                    self._play_character_idle()
+                    await self._publish_voice_state(False)
 
             def _play_character_motion(self, motion: str) -> None:
                 if not self._character:
                     return
                 try:
-                    self._character.play_motion(motion, loop=False, speed=1.0)
+                    self._character.play_motion(
+                        motion,
+                        loop=motion == self._default_motion,
+                        speed=1.0,
+                    )
                 except Exception as exc:  # noqa: BLE001
                     LOGGER.info("Character motion command skipped: %s", exc)
 
@@ -227,12 +230,12 @@ class TanyueAssistant:
                 except Exception as exc:  # noqa: BLE001
                     LOGGER.info("Character idle command skipped: %s", exc)
 
-            def _publish_voice_state(self, speaking: bool) -> None:
+            async def _publish_voice_state(self, speaking: bool) -> None:
                 try:
                     local_participant = getattr(self._room, "local_participant", None)
                     if not local_participant:
                         return
-                    local_participant.publish_data(
+                    await local_participant.publish_data(
                         json.dumps(
                             {
                                 "type": "assistant_speaking",
