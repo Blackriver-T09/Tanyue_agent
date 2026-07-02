@@ -65,6 +65,8 @@ cp voice/.env.livekit.example voice/.env
 - `TANYUE_COSYVOICE_CLONE_ENABLED=1`
 - `TANYUE_COSYVOICE_REFERENCE_AUDIO=voice/reference.wav`
 - `TANYUE_COSYVOICE_CLONE_CACHE=voice/.cosyvoice_voice_id`
+- `TANYUE_CHARACTER_ENABLED=1`
+- `TANYUE_CHARACTER_BRIDGE_URL=http://127.0.0.1:8893`
 
 `voice/.env` 和项目根目录 `.env` 都会被自动读取；真实密钥已被 `.gitignore` 忽略。
 
@@ -119,7 +121,7 @@ python tanyue_agent.py web
 然后打开：
 
 ```text
-http://127.0.0.1:8893
+http://127.0.0.1:8894
 ```
 
 推荐完整运行方式：
@@ -128,11 +130,16 @@ http://127.0.0.1:8893
 # Terminal 1: Agent worker
 python tanyue_agent.py start
 
-# Terminal 2: Web UI and token service
+# Terminal 2: Character bridge
+python3 character/scripts/character_bridge.py --host 127.0.0.1 --port 8893
+
+# Terminal 3: Unified Web UI, character iframe, and token service
 python tanyue_agent.py web
 ```
 
 Agent 名称默认是 `tanyue`，可通过 `TANYUE_LIVEKIT_AGENT_NAME` 修改。
+
+统一 Web 页面内嵌数字人角色，右侧 Debug 面板可以折叠，展开后可以看到房间、转录、dispatch 和日志。如果 `character_bridge.py` 已启动，语音 Agent 会读取 `character/motions/manifest.json`，要求 Qwen 在每次回复中选择一个 `motion`。Agent 会解析这个动作指令，朗读 `reply` 的同时把动作发给角色 bridge；朗读结束后角色会回到 `angry` 待机动作。
 
 ## 4. 声音复刻
 

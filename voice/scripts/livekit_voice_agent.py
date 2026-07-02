@@ -4,9 +4,11 @@ from __future__ import annotations
 import os
 import sys
 import importlib
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = ROOT.parent
@@ -80,27 +82,166 @@ def qwen_extra_body() -> dict[str, object]:
     return extra
 
 
+def load_motion_manifest() -> dict[str, Any]:
+    manifest_path = PROJECT_ROOT / "character" / "motions" / "manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("Could not load character motion manifest: %s", exc)
+        return {"version": 1, "defaultIdleMotion": "angry", "motions": []}
+    if isinstance(manifest, list):
+        return {"version": 0, "defaultIdleMotion": "angry", "motions": manifest}
+    return manifest
+
+
+def motion_prompt(manifest: dict[str, Any]) -> str:
+    motions = []
+    for motion in manifest.get("motions", []):
+        if not motion.get("id"):
+            continue
+        motions.append(
+            {
+                "id": motion.get("id"),
+                "label": motion.get("label", motion.get("id")),
+                "description": motion.get("description", ""),
+                "situations": motion.get("situations", []),
+                "mood": motion.get("mood", []),
+                "tags": motion.get("tags", []),
+            }
+        )
+    payload = {
+        "defaultIdleMotion": manifest.get("defaultIdleMotion", "angry"),
+        "motions": motions,
+    }
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def parse_assistant_payload(raw: str, valid_motions: set[str], default_motion: str) -> tuple[str, str]:
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lower().startswith("json"):
+            text = text[4:].strip()
+
+    candidates = [text]
+    start = text.find("{")
+    end = text.rfind("}")
+    if start >= 0 and end > start:
+        candidates.append(text[start : end + 1])
+
+    for candidate in candidates:
+        try:
+            payload = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        reply = str(payload.get("reply") or payload.get("text") or "").strip()
+        motion = str(payload.get("motion") or payload.get("action") or default_motion).strip()
+        if motion not in valid_motions:
+            motion = default_motion
+        if reply:
+            return reply, motion
+
+    LOGGER.warning("Could not parse assistant motion payload, speaking raw text: %s", raw[:300])
+    return raw.strip(), default_motion
+
+
 class TanyueAssistant:
-    def __init__(self):
+    def __init__(self, motion_manifest: dict[str, Any]):
         from livekit.agents import Agent
+
+        motion_manifest_text = motion_prompt(motion_manifest)
+        valid_motions = {
+            item.get("id")
+            for item in motion_manifest.get("motions", [])
+            if isinstance(item, dict) and item.get("id")
+        }
+        default_motion = motion_manifest.get("defaultIdleMotion", "angry")
+        if default_motion not in valid_motions:
+            default_motion = "angry" if "angry" in valid_motions else next(iter(valid_motions), "angry")
 
         class _Assistant(Agent):
             def __init__(self, tts: AliyunCosyVoiceTTS) -> None:
                 self._aliyun_tts = tts
+                self._character = build_character_agent()
+                self._valid_motions = valid_motions
+                self._default_motion = default_motion
                 super().__init__(
                     instructions=(
                         "你是Tanyue的实时语音数字人。"
                         "用中文自然口语回复，默认只说一句，尽量不超过30个汉字。"
                         "不要追问，不要输出列表，不要解释系统实现。"
+                        "你必须只输出一个JSON对象，不要使用Markdown代码块。"
+                        "JSON格式：{\"reply\":\"要说给用户的话\",\"motion\":\"动作id\"}。"
+                        "reply会被朗读，motion只用于控制数字人，不能把动作id说出来。"
+                        f"可选动作清单：{motion_manifest_text}。"
+                        f"没有明确更合适动作时使用默认待机动作：{default_motion}。"
                         f"当前日期上下文：{today_context()}。"
                     )
                 )
 
+            async def llm_node(self, chat_ctx, tools, model_settings):
+                from livekit.agents import Agent
+
+                chunks: list[str] = []
+                async for chunk in Agent.default.llm_node(self, chat_ctx, tools, model_settings):
+                    if isinstance(chunk, str):
+                        chunks.append(chunk)
+                        continue
+                    content = getattr(getattr(chunk, "delta", None), "content", None)
+                    if content:
+                        chunks.append(content)
+
+                reply, motion = parse_assistant_payload(
+                    "".join(chunks),
+                    self._valid_motions,
+                    self._default_motion,
+                )
+                self._play_character_motion(motion)
+                yield reply
+
             async def tts_node(self, text, model_settings):
-                async for frame in self._aliyun_tts.synthesize_frames(text):
-                    yield frame
+                try:
+                    async for frame in self._aliyun_tts.synthesize_frames(text):
+                        yield frame
+                finally:
+                    self._play_character_idle()
+
+            def _play_character_motion(self, motion: str) -> None:
+                if not self._character:
+                    return
+                try:
+                    self._character.play_motion(motion, loop=False, speed=1.0)
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.info("Character motion command skipped: %s", exc)
+
+            def _play_character_idle(self) -> None:
+                if not self._character:
+                    return
+                try:
+                    self._character.command("playIdleMotion")
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.info("Character idle command skipped: %s", exc)
 
         self.cls = _Assistant
+
+
+def build_character_agent():
+    if not env_bool("TANYUE_CHARACTER_ENABLED", True):
+        return None
+    try:
+        from character.tanyue_character import CharacterAgent, CharacterAgentConfig
+
+        return CharacterAgent(
+            CharacterAgentConfig(
+                base_url=os.environ.get("TANYUE_CHARACTER_BRIDGE_URL", "http://127.0.0.1:8893"),
+                timeout=float(os.environ.get("TANYUE_CHARACTER_BRIDGE_TIMEOUT", "0.35")),
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.info("Character bridge disabled: %s", exc)
+        return None
 
 
 def build_server():
@@ -111,7 +252,8 @@ def build_server():
     import openai as openai_sdk
 
     api_key = dashscope_api_key()
-    assistant_factory = TanyueAssistant().cls
+    motion_manifest = load_motion_manifest()
+    assistant_factory = TanyueAssistant(motion_manifest).cls
     cosyvoice = AliyunCosyVoiceTTS(config_from_env(api_key=api_key))
     if cosyvoice.config.clone_enabled:
         cosyvoice.ensure_cloned_voice()

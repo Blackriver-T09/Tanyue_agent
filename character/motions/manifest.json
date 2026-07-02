@@ -1,20 +1,186 @@
-[
-  { "id": "angry", "label": "Angry", "file": "X Bot@Angry.fbx" },
-  { "id": "catwalk_idle_to_twist_r", "label": "Catwalk Twist", "file": "X Bot@Catwalk Idle To Twist R.fbx" },
-  { "id": "catwalk_walk_forward_highknees", "label": "Catwalk High Knees", "file": "X Bot@Catwalk Walk Forward HighKnees.fbx" },
-  { "id": "dancing", "label": "Dancing", "file": "X Bot@Dancing.fbx" },
-  { "id": "excited", "label": "Excited", "file": "X Bot@Excited.fbx" },
-  { "id": "standing", "label": "Standing", "file": "X Bot@Female Standing Pose.fbx" },
-  { "id": "golf_bad_shot", "label": "Golf Bad Shot", "file": "X Bot@Golf Bad Shot.fbx" },
-  { "id": "jog_in_circle", "label": "Jog Circle", "file": "X Bot@Jog In Circle.fbx" },
-  { "id": "jogging", "label": "Jogging", "file": "X Bot@Jogging.fbx" },
-  { "id": "pointing_forward", "label": "Point Forward", "file": "X Bot@Pointing Forward.fbx" },
-  { "id": "pointing", "label": "Pointing", "file": "X Bot@Pointing.fbx" },
-  { "id": "rumba", "label": "Rumba", "file": "X Bot@Rumba Dancing.fbx" },
-  { "id": "salute", "label": "Salute", "file": "X Bot@Salute.fbx" },
-  { "id": "sitting", "label": "Sitting", "file": "X Bot@Sitting.fbx" },
-  { "id": "strut_walking", "label": "Strut Walk", "file": "X Bot@Strut Walking.fbx" },
-  { "id": "talking_on_phone", "label": "Phone", "file": "X Bot@Talking On Phone.fbx" },
-  { "id": "walking", "label": "Walking", "file": "X Bot@Walking.fbx" },
-  { "id": "waving", "label": "Waving", "file": "X Bot@Waving.fbx" }
-]
+{
+  "version": 1,
+  "defaultIdleMotion": "angry",
+  "motions": [
+    {
+      "id": "angry",
+      "label": "Angry",
+      "file": "X Bot@Angry.fbx",
+      "description": "双臂和身体带有明显不满、较强存在感的待机动作。适合默认待机、傲娇、轻微不爽、吐槽或带压迫感的回应。",
+      "posture": "站立，身体有攻击性和不满感。",
+      "situations": ["default_idle", "complaint", "teasing", "dismissive_reply"],
+      "mood": ["angry", "annoyed", "confident", "disdainful"],
+      "tags": ["idle", "loopable", "strong_attitude"]
+    },
+    {
+      "id": "catwalk_idle_to_twist_r",
+      "label": "Catwalk Twist",
+      "file": "X Bot@Catwalk Idle To Twist R.fbx",
+      "description": "带展示感的转身扭动动作，偏自信和魅惑。适合轻佻、展示自己、转移话题或调皮回应。",
+      "posture": "站立转身，身体重心和腰胯动作明显。",
+      "situations": ["show_off", "flirty_reply", "playful_transition"],
+      "mood": ["confident", "flirty", "playful"],
+      "tags": ["catwalk", "turn", "stylish"]
+    },
+    {
+      "id": "catwalk_walk_forward_highknees",
+      "label": "Catwalk High Knees",
+      "file": "X Bot@Catwalk Walk Forward HighKnees.fbx",
+      "description": "夸张的走秀前进动作，气场强。适合自信登场、强调自己、夸张表现。",
+      "posture": "向前走动，高抬腿，走秀风格。",
+      "situations": ["entrance", "emphasis", "confident_statement"],
+      "mood": ["confident", "proud", "dramatic"],
+      "tags": ["walk", "catwalk", "high_energy"]
+    },
+    {
+      "id": "dancing",
+      "label": "Dancing",
+      "file": "X Bot@Dancing.fbx",
+      "description": "轻松跳舞动作。适合开心、庆祝、气氛变轻松或用户开玩笑时。",
+      "posture": "全身舞蹈动作，节奏感明显。",
+      "situations": ["celebration", "joke", "happy_reply"],
+      "mood": ["happy", "playful", "energetic"],
+      "tags": ["dance", "high_energy"]
+    },
+    {
+      "id": "excited",
+      "label": "Excited",
+      "file": "X Bot@Excited.fbx",
+      "description": "兴奋、积极的身体动作。适合惊喜、赞同、鼓励和期待。",
+      "posture": "站立，动作外放，情绪上扬。",
+      "situations": ["agreement", "surprise", "encouragement"],
+      "mood": ["excited", "happy", "supportive"],
+      "tags": ["positive", "high_energy"]
+    },
+    {
+      "id": "standing",
+      "label": "Standing",
+      "file": "X Bot@Female Standing Pose.fbx",
+      "description": "基础站姿。适合普通回答、平静解释或没有明显情绪时。",
+      "posture": "自然站立，动作幅度小。",
+      "situations": ["neutral_reply", "explanation", "calm"],
+      "mood": ["neutral", "calm"],
+      "tags": ["standing", "neutral", "loopable"]
+    },
+    {
+      "id": "golf_bad_shot",
+      "label": "Golf Bad Shot",
+      "file": "X Bot@Golf Bad Shot.fbx",
+      "description": "像挥杆失败后的懊恼动作。适合尴尬、失误、自嘲或吐槽失败。",
+      "posture": "运动式动作，随后表现挫败。",
+      "situations": ["mistake", "self_mocking", "awkward"],
+      "mood": ["frustrated", "embarrassed", "comic"],
+      "tags": ["comedy", "failure"]
+    },
+    {
+      "id": "jog_in_circle",
+      "label": "Jog Circle",
+      "file": "X Bot@Jog In Circle.fbx",
+      "description": "绕圈小跑。适合焦急、坐不住、兴奋过头或表现忙碌。",
+      "posture": "循环跑动，空间感强。",
+      "situations": ["impatient", "busy", "overexcited"],
+      "mood": ["restless", "energetic", "anxious"],
+      "tags": ["run", "loopable", "movement"]
+    },
+    {
+      "id": "jogging",
+      "label": "Jogging",
+      "file": "X Bot@Jogging.fbx",
+      "description": "原地或前进式慢跑动作。适合活力、催促、准备行动。",
+      "posture": "慢跑节奏，身体持续运动。",
+      "situations": ["ready", "hurry", "energetic_reply"],
+      "mood": ["energetic", "ready"],
+      "tags": ["run", "loopable"]
+    },
+    {
+      "id": "pointing_forward",
+      "label": "Point Forward",
+      "file": "X Bot@Pointing Forward.fbx",
+      "description": "向前指示动作。适合强调重点、指出对象、给出明确建议。",
+      "posture": "手臂向前指，指向感强。",
+      "situations": ["instruction", "emphasis", "direct_answer"],
+      "mood": ["assertive", "focused"],
+      "tags": ["point", "gesture"]
+    },
+    {
+      "id": "pointing",
+      "label": "Pointing",
+      "file": "X Bot@Pointing.fbx",
+      "description": "指向或提示动作。适合说明、提醒、轻微责备或点破用户想法。",
+      "posture": "站立指向，动作明确。",
+      "situations": ["reminder", "explanation", "teasing_callout"],
+      "mood": ["assertive", "teasing", "focused"],
+      "tags": ["point", "gesture"]
+    },
+    {
+      "id": "rumba",
+      "label": "Rumba",
+      "file": "X Bot@Rumba Dancing.fbx",
+      "description": "伦巴风格舞蹈，带柔和和魅惑感。适合暧昧、调情、心情好时。",
+      "posture": "舞蹈动作，节奏柔和，身体摆动明显。",
+      "situations": ["flirty_reply", "romantic", "playful"],
+      "mood": ["flirty", "happy", "soft"],
+      "tags": ["dance", "romantic"]
+    },
+    {
+      "id": "salute",
+      "label": "Salute",
+      "file": "X Bot@Salute.fbx",
+      "description": "敬礼动作。适合确认收到、认真承诺、配合执行或俏皮地答应。",
+      "posture": "站立敬礼，动作干脆。",
+      "situations": ["acknowledgement", "promise", "ready_to_help"],
+      "mood": ["respectful", "playful", "confident"],
+      "tags": ["greeting", "confirm"]
+    },
+    {
+      "id": "sitting",
+      "label": "Sitting",
+      "file": "X Bot@Sitting.fbx",
+      "description": "坐姿动作。适合放松聊天、安静陪伴、认真倾听。",
+      "posture": "坐下或坐姿待机。",
+      "situations": ["long_chat", "listening", "calm_companion"],
+      "mood": ["calm", "relaxed", "attentive"],
+      "tags": ["sit", "calm"]
+    },
+    {
+      "id": "strut_walking",
+      "label": "Strut Walk",
+      "file": "X Bot@Strut Walking.fbx",
+      "description": "自信大步走。适合得意、挑衅、强势或带女王感的回应。",
+      "posture": "走路动作，姿态张扬。",
+      "situations": ["confident_reply", "challenge", "teasing"],
+      "mood": ["confident", "proud", "disdainful"],
+      "tags": ["walk", "attitude"]
+    },
+    {
+      "id": "talking_on_phone",
+      "label": "Phone",
+      "file": "X Bot@Talking On Phone.fbx",
+      "description": "打电话动作。适合模拟通话、转述消息、假装联系别人或开玩笑。",
+      "posture": "手靠近耳侧，像正在通话。",
+      "situations": ["phone_call", "pretend_call", "message"],
+      "mood": ["casual", "playful"],
+      "tags": ["phone", "gesture"]
+    },
+    {
+      "id": "walking",
+      "label": "Walking",
+      "file": "X Bot@Walking.fbx",
+      "description": "普通行走动作。适合过渡、准备行动、平稳地引出下一句话。",
+      "posture": "自然行走。",
+      "situations": ["transition", "moving_on", "neutral_action"],
+      "mood": ["neutral", "calm"],
+      "tags": ["walk", "loopable"]
+    },
+    {
+      "id": "waving",
+      "label": "Waving",
+      "file": "X Bot@Waving.fbx",
+      "description": "挥手打招呼。适合问候、告别、欢迎用户、轻松回应。",
+      "posture": "抬手挥动，表情可配合开心。",
+      "situations": ["greeting", "farewell", "welcome"],
+      "mood": ["friendly", "happy", "warm"],
+      "tags": ["greeting", "wave"]
+    }
+  ]
+}

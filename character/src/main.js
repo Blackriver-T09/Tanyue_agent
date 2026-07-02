@@ -7,6 +7,10 @@ import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 const canvas = document.querySelector('#vrm-canvas');
 const statusEl = document.querySelector('#status');
 const bridgeStatusEl = document.querySelector('#bridgeStatus');
+const pageParams = new URLSearchParams(window.location.search);
+if (pageParams.get('embed') === '1' || pageParams.get('embed') === 'true') {
+  document.body.classList.add('embed');
+}
 
 const controlsState = {
   idle: true,
@@ -106,6 +110,7 @@ const posePresets = {
 };
 
 const fbxMotions = {};
+let defaultIdleMotion = 'angry';
 
 const mixamoBoneMap = {
   mixamorigHips: 'hips',
@@ -468,7 +473,11 @@ async function loadMotionManifest() {
   try {
     const response = await fetch('./motions/manifest.json', { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const motions = await response.json();
+    const manifest = await response.json();
+    const motions = Array.isArray(manifest) ? manifest : manifest.motions || [];
+    defaultIdleMotion = Array.isArray(manifest)
+      ? defaultIdleMotion
+      : manifest.defaultIdleMotion || defaultIdleMotion;
     const container = document.querySelector('#motionButtons');
 
     for (const motion of motions) {
@@ -487,6 +496,12 @@ async function loadMotionManifest() {
     }
 
     setStatus(`VRM ready · ${Object.keys(fbxMotions).length} motions`);
+    if (defaultIdleMotion && fbxMotions[defaultIdleMotion]) {
+      controlsState.motionLoop = true;
+      const loopToggle = document.querySelector('#motionLoop');
+      if (loopToggle) loopToggle.checked = true;
+      playMotion(defaultIdleMotion);
+    }
   } catch (error) {
     console.error('Could not load motion manifest.', error);
     setStatus('VRM ready · motion manifest failed');
@@ -542,6 +557,17 @@ function stopMotion() {
     currentMixer = null;
   }
   currentVrm?.humanoid?.resetNormalizedPose();
+}
+
+function playIdleMotion() {
+  if (!defaultIdleMotion || !fbxMotions[defaultIdleMotion]) {
+    applyPosePreset('relaxed');
+    return;
+  }
+  controlsState.motionLoop = true;
+  const loopToggle = document.querySelector('#motionLoop');
+  if (loopToggle) loopToggle.checked = true;
+  playMotion(defaultIdleMotion);
 }
 
 function normalizeMixamoBoneName(rawName) {
@@ -699,8 +725,11 @@ async function applyAgentCommand(command = {}) {
       return { ok: true };
     case 'stopMotion':
       stopMotion();
-      applyPosePreset('relaxed');
+      playIdleMotion();
       setStatus('Motion stopped');
+      return { ok: true };
+    case 'playIdleMotion':
+      playIdleMotion();
       return { ok: true };
     case 'setMouth':
       setMouth(command.payload || command);

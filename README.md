@@ -124,7 +124,18 @@ docker compose up
 starting LiveKit server {"portHttp": 7880, ...}
 ```
 
-### 2. 启动 Agent worker
+### 2. 启动 Character Bridge
+
+如果要让 AI 同时控制数字人动作，启动角色控制 bridge：
+
+```bash
+cd /Users/heihe/Desktop/Project/Tanyue
+python3 character/scripts/character_bridge.py --host 127.0.0.1 --port 8893
+```
+
+角色页面现在由 `python tanyue_agent.py web` 统一托管，不需要再单独打开 `8892`。统一页面里的角色 iframe 会连接 `http://127.0.0.1:8893/events`，加载完成后自动循环播放 `angry` 作为待机动作。
+
+### 3. 启动 Agent worker
 
 新开终端：
 
@@ -142,14 +153,16 @@ Tanyue job accepted ... qwen_thinking=False ... cosyvoice_model=cosyvoice-v3.5-p
 Aliyun STT stream connected
 ```
 
-### 3. 启动 Web 页面
+Agent 会把 `character/motions/manifest.json` 中的动作说明加入提示词。Qwen 每次回复会生成 `reply` 和 `motion`，Agent 会在朗读 `reply` 的同时通过 `TANYUE_CHARACTER_BRIDGE_URL` 发送 `motion` 给角色页面。
+
+### 4. 启动语音 Web 页面
 
 再开一个终端：
 
 ```bash
 cd /Users/heihe/Desktop/Project/Tanyue
 conda activate Tanyue
-python tanyue_agent.py web --port 8894
+python tanyue_agent.py web
 ```
 
 浏览器打开：
@@ -159,6 +172,8 @@ http://127.0.0.1:8894
 ```
 
 点击 `Connect`，允许麦克风权限，然后直接说话。页面会显示用户转录和 Agent 回复，浏览器会播放 Agent 语音。
+
+统一页面左侧/中间是数字人舞台，右侧是可折叠 Debug 面板。点击面板顶部的 `›` 可以收起对话日志和连接控制，减少空间占用；需要看转录、dispatch、房间状态时再展开。
 
 ## 常用命令
 

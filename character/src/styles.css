@@ -55,6 +55,19 @@ body {
   padding: 22px;
 }
 
+body.embed .app {
+  grid-template-columns: 1fr;
+}
+
+body.embed .panel {
+  display: none;
+}
+
+body.embed .status {
+  left: 18px;
+  bottom: 18px;
+}
+
 .panel header {
   margin-bottom: 24px;
 }
@@ -155,5 +168,9 @@ button:hover {
     height: 330px;
     border-left: 0;
     border-top: 1px solid rgba(25, 25, 25, 0.12);
+  }
+
+  body.embed .app {
+    grid-template-rows: 1fr;
   }
 }

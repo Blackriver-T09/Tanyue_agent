@@ -33,7 +33,19 @@ Agent / Python
 
 ## 启动
 
-在项目根目录启动角色页面：
+主项目页面已经内嵌角色窗口。常规使用时启动：
+
+```bash
+python tanyue_agent.py web
+```
+
+然后打开：
+
+```text
+http://127.0.0.1:8894
+```
+
+如果只想单独调试角色页面，可以在项目根目录启动独立静态页面：
 
 ```bash
 python3 -m http.server 8892 -d character
@@ -196,7 +208,30 @@ window.tanyueCharacter.getState();
 
 ## 当前可用动作
 
-FBX 动作由 `character/motions/manifest.json` 注册。当前可用 id：
+FBX 动作由 `character/motions/manifest.json` 注册。manifest 现在是版本化对象：
+
+```json
+{
+  "version": 1,
+  "defaultIdleMotion": "angry",
+  "motions": [
+    {
+      "id": "waving",
+      "label": "Waving",
+      "file": "X Bot@Waving.fbx",
+      "description": "挥手打招呼。适合问候、告别、欢迎用户、轻松回应。",
+      "posture": "抬手挥动，表情可配合开心。",
+      "situations": ["greeting", "farewell", "welcome"],
+      "mood": ["friendly", "happy", "warm"],
+      "tags": ["greeting", "wave"]
+    }
+  ]
+}
+```
+
+`description`、`situations`、`mood`、`tags` 会被语音 Agent 放进 Qwen 提示词，用来让 AI 选择动作。以后新增动作时只要继续往 `motions` 数组追加对象即可。
+
+当前可用 id：
 
 ```text
 angry
@@ -222,10 +257,19 @@ waving
 新增动作：
 
 1. 把 Mixamo 风格 `.fbx` 放入 `character/motions/`。
-2. 在 `character/motions/manifest.json` 添加：
+2. 在 `character/motions/manifest.json` 的 `motions` 数组添加：
 
 ```json
-{"id":"new_motion","label":"New Motion","file":"X Bot@New Motion.fbx"}
+{
+  "id": "new_motion",
+  "label": "New Motion",
+  "file": "X Bot@New Motion.fbx",
+  "description": "一句简短说明动作姿态、适用场景和人物心情。",
+  "posture": "大致动作姿态。",
+  "situations": ["example_scene"],
+  "mood": ["example_mood"],
+  "tags": ["custom"]
+}
 ```
 
 3. 刷新页面。

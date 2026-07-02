@@ -46,6 +46,7 @@ def require_env(name: str) -> str:
 def create_app():
     from fastapi import FastAPI
     from fastapi.responses import HTMLResponse, Response
+    from fastapi.staticfiles import StaticFiles
     from livekit.api import (
         AccessToken,
         CreateAgentDispatchRequest,
@@ -55,6 +56,8 @@ def create_app():
 
     app = FastAPI(title="Tanyue LiveKit Voice Agent")
     index_path = PROJECT_ROOT / "web" / "tanyue_livekit.html"
+    character_path = PROJECT_ROOT / "character"
+    app.mount("/character", StaticFiles(directory=character_path, html=True), name="character")
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
@@ -275,7 +278,7 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest="command")
     web_parser = subparsers.add_parser("web", help="Start the local web UI and LiveKit token service.")
     web_parser.add_argument("--host", default="127.0.0.1")
-    web_parser.add_argument("--port", type=int, default=8893)
+    web_parser.add_argument("--port", type=int, default=8894)
     status_parser = subparsers.add_parser("status", help="Print LiveKit room, participant, and agent dispatch status.")
     status_parser.add_argument("--room", default="tanyue-room")
     clone_parser = subparsers.add_parser("clone-voice", help="Create or refresh the Aliyun CosyVoice cloned voice.")
