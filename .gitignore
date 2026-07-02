@@ -1,0 +1,46 @@
+# Local secrets
+Config.py
+.env
+.env.*
+!.env.example
+!*.example
+
+# Python cache and build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+env/
+venv/
+
+# OS and editor files
+.DS_Store
+**/.DS_Store
+.idea/
+.vscode/
+
+# Nested vendored repositories should stay as plain source trees in this repo.
+**/.git/
+
+# Model weights and generated assets
+**/weights/
+visual/vendor/OpenFace-3.0/
+*.pth
+*.pkl
+*.pt
+*.bin
+*.tar
+*.safetensors
+*.onnx
+**/feature_maps_output/
+**/output/
+**/outputs/
+
+# Local runtime scratch
+*.raw24k.wav
+*.tmp

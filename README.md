@@ -1,0 +1,234 @@
+# Tanyue Digital Human Agent
+
+## 中文
+
+Tanyue 是一个面向实时陪伴交互的数字人 Agent 项目。当前代码已经完成四个基础模块，并优先跑通了“语音输入 -> 大模型回复 -> 语音输出”的实时闭环。
+
+当前主链路：
+
+```text
+Browser microphone
+  -> local LiveKit RTC
+  -> local LiveKit Agents worker
+  -> Aliyun realtime STT / Fun-ASR
+  -> Aliyun Bailian Qwen 3.6 Flash
+  -> Aliyun CosyVoice streaming TTS
+  -> local LiveKit RTC
+  -> Browser audio playback
+```
+
+LiveKit 只负责本地 RTC、房间、麦克风音频传输和 Agent 音频回传。STT、LLM、TTS 都走阿里云线上 API，以降低本地机器负担并减少模型部署复杂度。
+
+## 当前模块
+
+- `visual/`：OpenFace 3.0 面部情感识别、表情/头部姿态/视线/参与度等高级视觉特征。
+- `hear/`：早期听觉输入实验和阿里云实时转录脚本。
+- `voice/`：当前主用的实时语音 Agent，基于 LiveKit Agents + 阿里云 STT/Qwen/CosyVoice。
+- `character/`：Web VRM 数字人展示、动作、口型和 Agent 控制接口。
+- `LiveKit/`：本地自托管 LiveKit Server 配置。
+- `web/`：浏览器语音测试页。
+- `tanyue_agent.py`：项目根目录统一入口。
+
+## 环境
+
+推荐使用已有 conda 环境：
+
+```bash
+conda activate Tanyue
+```
+
+LiveKit 语音链路依赖：
+
+```bash
+conda run -n Tanyue python -m pip install -r voice/requirements-livekit.txt
+```
+
+本地 LiveKit Server 需要 Docker。macOS 如果没有 `docker` 命令，需要先安装并启动 Docker Desktop。
+
+## 配置
+
+真实密钥不要提交到 Git。当前 `.gitignore` 已忽略：
+
+- `Config.py`
+- `.env`
+- `.env.*`
+- Python 缓存
+- 模型权重和输出文件
+
+阿里云配置可以放在项目根目录 `Config.py`：
+
+```python
+API_KEY = "..."
+DASHSCOPE_WORKSPACE_ID = "..."
+API_HOST = "..."
+DASHSCOPE_REGION = "beijing"
+```
+
+也可以复制环境变量模板：
+
+```bash
+cp voice/.env.livekit.example voice/.env
+```
+
+关键实时语音配置：
+
+```bash
+LIVEKIT_URL=ws://127.0.0.1:7880
+LIVEKIT_API_KEY=devkey
+LIVEKIT_API_SECRET=devsecret
+
+TANYUE_STT_PROVIDER=aliyun
+TANYUE_ALIYUN_STT_MODEL=fun-asr-realtime
+
+TANYUE_QWEN_MODEL=qwen3.6-flash
+TANYUE_QWEN_ENABLE_THINKING=0
+TANYUE_QWEN_MAX_COMPLETION_TOKENS=48
+TANYUE_QWEN_TEMPERATURE=0.6
+
+TANYUE_COSYVOICE_MODEL=cosyvoice-v1
+TANYUE_COSYVOICE_VOICE=longxiaochun
+TANYUE_COSYVOICE_ENABLE_STYLE_PARAMS=0
+```
+
+实时语音默认关闭 Qwen thinking。这个设置对延迟非常关键：实测默认 thinking 的首 token 可能接近 10 秒，关闭后通常进入亚秒级。
+
+## 启动实时语音 Agent
+
+### 1. 启动本地 LiveKit Server
+
+```bash
+cd /Users/heihe/Desktop/Project/Tanyue/LiveKit
+docker compose up
+```
+
+看到类似日志表示 LiveKit 已启动：
+
+```text
+starting LiveKit server {"portHttp": 7880, ...}
+```
+
+### 2. 启动 Agent worker
+
+新开终端：
+
+```bash
+cd /Users/heihe/Desktop/Project/Tanyue
+conda activate Tanyue
+python tanyue_agent.py start
+```
+
+正常日志会包含：
+
+```text
+registered worker
+Tanyue job accepted ... qwen_thinking=False ... cosyvoice_model=cosyvoice-v1 voice=longxiaochun
+Aliyun STT stream connected
+```
+
+### 3. 启动 Web 页面
+
+再开一个终端：
+
+```bash
+cd /Users/heihe/Desktop/Project/Tanyue
+conda activate Tanyue
+python tanyue_agent.py web --port 8894
+```
+
+浏览器打开：
+
+```text
+http://127.0.0.1:8894
+```
+
+点击 `Connect`，允许麦克风权限，然后直接说话。页面会显示用户转录和 Agent 回复，浏览器会播放 Agent 语音。
+
+## 常用命令
+
+查看入口帮助：
+
+```bash
+python tanyue_agent.py --help
+```
+
+查看房间状态：
+
+```bash
+python tanyue_agent.py status --room tanyue-room
+```
+
+换一个干净房间测试：
+
+```text
+tanyue-test-1
+```
+
+如果房间里残留旧 dispatch 或旧 Agent，直接换新房间名最快；也可以重启 LiveKit Server。
+
+## 延迟优化状态
+
+当前实时链路已经做了这些优化：
+
+- STT 使用阿里云实时 Fun-ASR，句末结果几乎立即返回。
+- Qwen 使用 OpenAI-compatible streaming。
+- 默认关闭 Qwen thinking，降低首 token 延迟。
+- 限制 Qwen 回复长度，避免语音回复过长。
+- CosyVoice 使用流式 `streaming_call()`，Qwen 产出的文本片段会立即送入 TTS。
+- CosyVoice PCM 回调直接转 LiveKit `AudioFrame`，不落盘。
+
+当前观察到的体感延迟：用户说完后约 1 秒左右开始播放 Agent 语音。剩余延迟主要来自云端首 token、TTS 首包和网络往返。
+
+## 排障
+
+- 页面连接失败：确认 `LiveKit/docker-compose.yml` 正在运行，`LIVEKIT_URL=ws://127.0.0.1:7880`。
+- 页面能连接但没有 Agent：确认 `python tanyue_agent.py start` 仍在运行，并查看 `python tanyue_agent.py status --room <room>`。
+- 能显示用户转录但没有回复：看 worker 日志中是否出现 `Aliyun CosyVoice TTS error` 或 Qwen API 错误。
+- 从说完话到开始说话超过数秒：确认日志里 `qwen_thinking=False`。
+- `InsecureKeyLengthWarning`：本地 `devsecret` 太短，仅开发环境可接受；正式部署需要替换强密钥。
+- `/.well-known/appspecific/com.chrome.devtools.json 404`：Chrome/Edge DevTools 探测请求，可忽略。
+
+## Git 保存策略
+
+当前仓库忽略密钥、缓存、模型权重和生成输出。提交代码前可以检查：
+
+```bash
+git status --short
+git status --ignored --short
+```
+
+不要提交 `Config.py`、`.env`、模型权重、音频输出或缓存目录。
+
+## English
+
+Tanyue is a realtime digital-human agent project. The current working path is the voice loop: browser microphone, local LiveKit RTC, LiveKit Agents worker, Aliyun realtime STT, Qwen 3.6 Flash, Aliyun CosyVoice streaming TTS, and browser audio playback.
+
+LiveKit is used only for RTC transport and rooms. STT, LLM, and TTS are cloud APIs to keep local runtime light.
+
+Quick start:
+
+```bash
+cd /Users/heihe/Desktop/Project/Tanyue/LiveKit
+docker compose up
+```
+
+```bash
+cd /Users/heihe/Desktop/Project/Tanyue
+conda activate Tanyue
+python tanyue_agent.py start
+```
+
+```bash
+cd /Users/heihe/Desktop/Project/Tanyue
+conda activate Tanyue
+python tanyue_agent.py web --port 8894
+```
+
+Open `http://127.0.0.1:8894`, click `Connect`, allow microphone access, and speak.
+
+Important latency setting:
+
+```bash
+TANYUE_QWEN_ENABLE_THINKING=0
+```
+
+Realtime voice should keep Qwen thinking disabled. Otherwise first-token latency can jump from sub-second to several seconds.

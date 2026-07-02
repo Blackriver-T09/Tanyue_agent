@@ -1,0 +1,20 @@
+[
+  { "id": "angry", "label": "Angry", "file": "X Bot@Angry.fbx" },
+  { "id": "catwalk_idle_to_twist_r", "label": "Catwalk Twist", "file": "X Bot@Catwalk Idle To Twist R.fbx" },
+  { "id": "catwalk_walk_forward_highknees", "label": "Catwalk High Knees", "file": "X Bot@Catwalk Walk Forward HighKnees.fbx" },
+  { "id": "dancing", "label": "Dancing", "file": "X Bot@Dancing.fbx" },
+  { "id": "excited", "label": "Excited", "file": "X Bot@Excited.fbx" },
+  { "id": "standing", "label": "Standing", "file": "X Bot@Female Standing Pose.fbx" },
+  { "id": "golf_bad_shot", "label": "Golf Bad Shot", "file": "X Bot@Golf Bad Shot.fbx" },
+  { "id": "jog_in_circle", "label": "Jog Circle", "file": "X Bot@Jog In Circle.fbx" },
+  { "id": "jogging", "label": "Jogging", "file": "X Bot@Jogging.fbx" },
+  { "id": "pointing_forward", "label": "Point Forward", "file": "X Bot@Pointing Forward.fbx" },
+  { "id": "pointing", "label": "Pointing", "file": "X Bot@Pointing.fbx" },
+  { "id": "rumba", "label": "Rumba", "file": "X Bot@Rumba Dancing.fbx" },
+  { "id": "salute", "label": "Salute", "file": "X Bot@Salute.fbx" },
+  { "id": "sitting", "label": "Sitting", "file": "X Bot@Sitting.fbx" },
+  { "id": "strut_walking", "label": "Strut Walk", "file": "X Bot@Strut Walking.fbx" },
+  { "id": "talking_on_phone", "label": "Phone", "file": "X Bot@Talking On Phone.fbx" },
+  { "id": "walking", "label": "Walking", "file": "X Bot@Walking.fbx" },
+  { "id": "waving", "label": "Waving", "file": "X Bot@Waving.fbx" }
+]

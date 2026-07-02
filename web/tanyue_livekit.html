@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tanyue Voice Agent</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f8fa;
+        --panel: #ffffff;
+        --text: #1d2430;
+        --muted: #687385;
+        --border: #dce1e8;
+        --accent: #1868db;
+        --accent-dark: #0f4da5;
+        --ok: #0f8a5f;
+        --warn: #a06100;
+        --error: #b42318;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      main {
+        width: min(960px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 32px 0;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        line-height: 1.2;
+        font-weight: 720;
+        letter-spacing: 0;
+      }
+      .status {
+        min-width: 112px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--panel);
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+      }
+      .status.connected {
+        color: var(--ok);
+      }
+      .status.error {
+        color: var(--error);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 16px;
+      }
+      section,
+      aside {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+      aside {
+        padding: 16px;
+      }
+      section {
+        min-height: 520px;
+        display: flex;
+        flex-direction: column;
+      }
+      label {
+        display: block;
+        margin: 0 0 6px;
+        font-size: 13px;
+        font-weight: 650;
+      }
+      input {
+        width: 100%;
+        height: 38px;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        font: inherit;
+        font-size: 14px;
+        background: #fff;
+      }
+      .field {
+        margin-bottom: 14px;
+      }
+      .buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      button {
+        height: 38px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: #fff;
+        color: var(--text);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 650;
+        cursor: pointer;
+      }
+      button.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+      }
+      button.primary:hover {
+        background: var(--accent-dark);
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+      .hint {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .log-header {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .call-state {
+        margin-top: 14px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #f8fafc;
+      }
+      .call-state strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 14px;
+      }
+      .call-state span {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .meter {
+        height: 8px;
+        margin-top: 12px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #e6ebf2;
+      }
+      .meter > div {
+        width: 0%;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--ok);
+        transition: width 90ms linear;
+      }
+      #log {
+        flex: 1;
+        padding: 16px;
+        overflow: auto;
+        font-size: 14px;
+        line-height: 1.55;
+      }
+      .entry {
+        margin: 0 0 10px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: #f3f6fa;
+        white-space: pre-wrap;
+      }
+      .entry.error {
+        color: var(--error);
+        background: #fff0ed;
+      }
+      .entry.system {
+        color: var(--muted);
+      }
+      .entry.user {
+        margin-left: 48px;
+        background: #eaf2ff;
+      }
+      .entry.agent {
+        margin-right: 48px;
+        background: #f0fbf6;
+      }
+      audio {
+        display: none;
+      }
+      @media (max-width: 760px) {
+        main {
+          width: min(100vw - 20px, 960px);
+          padding: 18px 0;
+        }
+        header,
+        .grid {
+          display: block;
+        }
+        .status {
+          margin-top: 12px;
+        }
+        aside {
+          margin-bottom: 12px;
+        }
+        section {
+          min-height: 440px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Tanyue Voice Agent</h1>
+        <div id="status" class="status">idle</div>
+      </header>
+
+      <div class="grid">
+        <aside>
+          <div class="field">
+            <label for="room">Room</label>
+            <input id="room" value="tanyue-room" />
+          </div>
+          <div class="field">
+            <label for="name">Name</label>
+            <input id="name" value="user" />
+          </div>
+          <div class="buttons">
+            <button id="connect" class="primary">Connect</button>
+            <button id="disconnect" disabled>Disconnect</button>
+          </div>
+          <p class="hint">
+            Connect 会请求麦克风权限并加入 LiveKit 房间。Agent 后台请另开终端运行
+            <code>python tanyue_agent.py start</code>。
+          </p>
+          <div class="call-state">
+            <strong id="callStateTitle">Not connected</strong>
+            <span id="callStateText">连接后直接对着麦克风说话。</span>
+            <div class="meter" aria-label="microphone level"><div id="micLevel"></div></div>
+          </div>
+        </aside>
+
+        <section>
+          <div class="log-header">
+            <span>Session log</span>
+            <span id="identity"></span>
+          </div>
+          <div id="log"></div>
+          <audio id="remoteAudio" autoplay></audio>
+        </section>
+      </div>
+    </main>
+
+    <script type="module">
+      import {
+        Room,
+        RoomEvent,
+        createLocalAudioTrack
+      } from "https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.esm.mjs";
+
+      const statusEl = document.querySelector("#status");
+      const logEl = document.querySelector("#log");
+      const connectBtn = document.querySelector("#connect");
+      const disconnectBtn = document.querySelector("#disconnect");
+      const identityEl = document.querySelector("#identity");
+      const audioEl = document.querySelector("#remoteAudio");
+      const roomInput = document.querySelector("#room");
+      const nameInput = document.querySelector("#name");
+      const callStateTitle = document.querySelector("#callStateTitle");
+      const callStateText = document.querySelector("#callStateText");
+      const micLevelEl = document.querySelector("#micLevel");
+
+      let room = null;
+      let micTrack = null;
+      let audioContext = null;
+      let meterTimer = null;
+      let statusTimer = null;
+      let lastStatusLine = "";
+
+      function setStatus(text, className = "") {
+        statusEl.textContent = text;
+        statusEl.className = `status ${className}`.trim();
+      }
+
+      function log(message, kind = "system") {
+        const node = document.createElement("div");
+        node.className = `entry ${kind}`.trim();
+        node.textContent = message;
+        logEl.appendChild(node);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function setCallState(title, text) {
+        callStateTitle.textContent = title;
+        callStateText.textContent = text;
+      }
+
+      function participantName(participant) {
+        return participant?.name || participant?.identity || "participant";
+      }
+
+      function logTranscript(text, participant, final = false) {
+        const name = participantName(participant);
+        const isUser = room && participant?.identity === room.localParticipant.identity;
+        const kind = isUser ? "user" : "agent";
+        log(`${isUser ? "你" : name}${final ? "" : " ..."}\n${text}`, kind);
+      }
+
+      async function dispatchAgent(roomName) {
+        const res = await fetch(`/api/dispatch-agent?room=${encodeURIComponent(roomName)}`, {
+          method: "POST"
+        });
+        if (!res.ok) {
+          throw new Error(`agent dispatch failed: ${await res.text()}`);
+        }
+        const data = await res.json();
+        log(`agent ${data.status}: ${data.agent_name} (${data.dispatch_id || "no id"})`);
+      }
+
+      async function checkLiveKitStatus(roomName, verbose = false) {
+        const res = await fetch(`/api/livekit-status?room=${encodeURIComponent(roomName)}`);
+        if (!res.ok) {
+          throw new Error(`livekit status failed: ${await res.text()}`);
+        }
+        const status = await res.json();
+        const participants = status.participants || [];
+        const dispatches = status.dispatches || [];
+        const identities = participants.map((item) => item.identity).filter(Boolean);
+        const hasAgent = identities.some((id) => id !== room?.localParticipant?.identity);
+        const dispatchLabel = dispatches.map((item) => `${item.agent_name}:${item.state}`).join(", ") || "none";
+        const statusLine = `participants: ${identities.join(", ") || "none"}\ndispatches: ${dispatchLabel}`;
+
+        if (hasAgent) {
+          setCallState("Listening", `Agent 已加入。请直接说话，麦克风电平跳动时表示浏览器正在采集声音。`);
+        } else {
+          setCallState("Waiting for agent", `已请求 Agent，但房间里暂时只有你。dispatch=${dispatchLabel}`);
+        }
+
+        if (verbose || statusLine !== lastStatusLine) {
+          log(`room status\n${statusLine}`);
+          lastStatusLine = statusLine;
+        }
+        return status;
+      }
+
+      function startStatusPolling(roomName) {
+        stopStatusPolling();
+        statusTimer = window.setInterval(() => {
+          checkLiveKitStatus(roomName).catch((err) => {
+            log(err instanceof Error ? err.message : String(err), "error");
+          });
+        }, 2500);
+      }
+
+      function stopStatusPolling() {
+        if (statusTimer) {
+          window.clearInterval(statusTimer);
+          statusTimer = null;
+        }
+      }
+
+      function startMicMeter(mediaStream) {
+        stopMicMeter();
+        audioContext = new AudioContext();
+        const source = audioContext.createMediaStreamSource(mediaStream);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
+        const data = new Uint8Array(analyser.fftSize);
+        meterTimer = window.setInterval(() => {
+          analyser.getByteTimeDomainData(data);
+          let sum = 0;
+          for (const value of data) {
+            const centered = value - 128;
+            sum += centered * centered;
+          }
+          const rms = Math.sqrt(sum / data.length) / 128;
+          micLevelEl.style.width = `${Math.min(100, Math.round(rms * 220))}%`;
+        }, 100);
+      }
+
+      function stopMicMeter() {
+        if (meterTimer) {
+          window.clearInterval(meterTimer);
+          meterTimer = null;
+        }
+        if (audioContext) {
+          audioContext.close();
+          audioContext = null;
+        }
+        micLevelEl.style.width = "0%";
+      }
+
+      async function connect() {
+        try {
+          setStatus("connecting");
+          connectBtn.disabled = true;
+          const params = new URLSearchParams({
+            room: roomInput.value.trim() || "tanyue-room",
+            name: nameInput.value.trim() || "user"
+          });
+          const roomName = params.get("room");
+          const res = await fetch(`/api/livekit-token?${params}`);
+          if (!res.ok) {
+            throw new Error(await res.text());
+          }
+          const data = await res.json();
+
+          room = new Room({
+            adaptiveStream: true,
+            dynacast: true
+          });
+
+          room.on(RoomEvent.TrackSubscribed, (track) => {
+            if (track.kind === "audio") {
+              track.attach(audioEl);
+              setCallState("Assistant speaking", "正在播放 Agent 的回复。");
+              log("assistant audio subscribed");
+            }
+          });
+
+          room.on(RoomEvent.TrackUnsubscribed, (track) => {
+            if (track.kind === "audio") {
+              setCallState("Listening", "请直接说话，说完后等待回复。");
+            }
+          });
+
+          room.on(RoomEvent.ParticipantConnected, (participant) => {
+            log(`${participantName(participant)} joined`);
+          });
+
+          room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+            log(`${participantName(participant)} left`);
+          });
+
+          room.on(RoomEvent.Disconnected, () => {
+            setStatus("disconnected");
+            setCallState("Not connected", "连接后直接对着麦克风说话。");
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            identityEl.textContent = "";
+            log("disconnected");
+          });
+
+          room.on(RoomEvent.DataReceived, (payload, participant) => {
+            const text = new TextDecoder().decode(payload);
+            log(`${participant?.identity || "data"}: ${text}`);
+          });
+
+          if (RoomEvent.TranscriptionReceived) {
+            room.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
+              for (const segment of segments) {
+                const text = segment.text || "";
+                const isFinal = segment.final || segment.isFinal;
+                if (text && isFinal) {
+                  logTranscript(text, participant, true);
+                }
+              }
+            });
+          }
+
+          await room.connect(data.url, data.token);
+          micTrack = await createLocalAudioTrack({
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          });
+          await room.localParticipant.publishTrack(micTrack);
+          const mediaStream = new MediaStream([micTrack.mediaStreamTrack]);
+          startMicMeter(mediaStream);
+          await dispatchAgent(roomName);
+          await checkLiveKitStatus(roomName, true);
+          startStatusPolling(roomName);
+
+          setStatus("connected", "connected");
+          disconnectBtn.disabled = false;
+          identityEl.textContent = data.identity;
+          log(`connected to ${data.room}`);
+        } catch (err) {
+          setStatus("error", "error");
+          connectBtn.disabled = false;
+          log(err instanceof Error ? err.message : String(err), "error");
+        }
+      }
+
+      async function disconnect() {
+        if (micTrack) {
+          micTrack.stop();
+          micTrack = null;
+        }
+        stopMicMeter();
+        stopStatusPolling();
+        if (room) {
+          room.disconnect();
+          room = null;
+        }
+      }
+
+      connectBtn.addEventListener("click", connect);
+      disconnectBtn.addEventListener("click", disconnect);
+      log("ready");
+    </script>
+  </body>
+</html>

@@ -1,0 +1,3 @@
+-r vendor/OpenFace-3.0/requirements.txt
+openface-test==0.1.14
+pypdf==6.14.2

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tanyue VRM Controller</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./src/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://esm.sh/three@0.180.0",
+          "three/addons/": "https://esm.sh/three@0.180.0/examples/jsm/",
+          "@pixiv/three-vrm": "https://esm.sh/@pixiv/three-vrm@3.5.4?external=three"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="app">
+      <section class="stage" aria-label="VRM preview">
+        <canvas id="vrm-canvas"></canvas>
+        <div class="status" id="status">Loading VRM...</div>
+      </section>
+
+      <aside class="panel" aria-label="Avatar controls">
+        <header>
+          <h1>Tanyue Character</h1>
+          <p>VRM realtime controller</p>
+        </header>
+
+        <div class="section">
+          <div class="section-title">Agent Bridge</div>
+          <div class="bridge-status" id="bridgeStatus">Agent bridge connecting...</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Motion</div>
+          <label><input id="idle" type="checkbox" checked /> Idle motion</label>
+          <label><input id="blink" type="checkbox" checked /> Auto blink</label>
+          <label>
+            Motion energy
+            <input id="energy" type="range" min="0" max="1" step="0.01" value="0.45" />
+          </label>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Motion</div>
+          <div class="buttons" id="motionButtons">
+            <button data-motion="stop">Stop</button>
+          </div>
+          <label><input id="motionLoop" type="checkbox" /> Loop motion</label>
+          <label>Motion speed <input id="motionSpeed" type="range" min="0.5" max="1.8" step="0.05" value="1" /></label>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Head</div>
+          <label>Yaw <input id="headYaw" type="range" min="-45" max="45" value="0" /></label>
+          <label>Pitch <input id="headPitch" type="range" min="-25" max="25" value="0" /></label>
+          <label>Body turn <input id="bodyYaw" type="range" min="-20" max="20" value="0" /></label>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Expression</div>
+          <div class="buttons">
+            <button data-expression="neutral">Neutral</button>
+            <button data-expression="happy">Happy</button>
+            <button data-expression="relaxed">Relaxed</button>
+            <button data-expression="sad">Sad</button>
+            <button data-expression="surprised">Surprised</button>
+          </div>
+          <label>Mouth AA <input id="mouthAa" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label>Mouth OH <input id="mouthOh" type="range" min="0" max="1" step="0.01" value="0" /></label>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Lip Sync</div>
+          <label><input id="lipSync" type="checkbox" checked /> Audio lip sync</label>
+          <label>Sensitivity <input id="lipSyncSensitivity" type="range" min="0.5" max="6" step="0.1" value="2.8" /></label>
+          <label>Smoothing <input id="lipSyncSmoothing" type="range" min="0.05" max="0.8" step="0.01" value="0.35" /></label>
+          <div class="buttons">
+            <button id="startMicLipSync" type="button">Mic Test</button>
+            <button id="stopLipSync" type="button">Stop Lip Sync</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Arms</div>
+          <label>Left arm <input id="leftArm" type="range" min="-130" max="130" value="72" /></label>
+          <label>Right arm <input id="rightArm" type="range" min="-130" max="130" value="-72" /></label>
+          <label>Left elbow <input id="leftElbow" type="range" min="-100" max="100" value="10" /></label>
+          <label>Right elbow <input id="rightElbow" type="range" min="-100" max="100" value="-10" /></label>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
