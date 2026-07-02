@@ -483,9 +483,18 @@
 
           await room.connect(data.url, data.token);
           micTrack = await createLocalAudioTrack({
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
+            echoCancellation: { ideal: true },
+            noiseSuppression: { ideal: true },
+            autoGainControl: { ideal: true },
+            channelCount: { ideal: 1 },
+            sampleRate: { ideal: 48000 },
+            advanced: [
+              {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+              }
+            ]
           });
           await room.localParticipant.publishTrack(micTrack);
           const mediaStream = new MediaStream([micTrack.mediaStreamTrack]);

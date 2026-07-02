@@ -113,6 +113,8 @@ def build_server():
     api_key = dashscope_api_key()
     assistant_factory = TanyueAssistant().cls
     cosyvoice = AliyunCosyVoiceTTS(config_from_env(api_key=api_key))
+    if cosyvoice.config.clone_enabled:
+        cosyvoice.ensure_cloned_voice()
     stt_provider = os.environ.get("TANYUE_STT_PROVIDER", "aliyun").lower()
     executor_name = os.environ.get("TANYUE_AGENT_EXECUTOR", "thread").lower()
     executor_type = JobExecutorType.PROCESS if executor_name == "process" else JobExecutorType.THREAD
@@ -169,6 +171,14 @@ def build_server():
                 temperature=float(os.environ.get("TANYUE_QWEN_TEMPERATURE", "0.6")),
                 max_completion_tokens=int(os.environ.get("TANYUE_QWEN_MAX_COMPLETION_TOKENS", "48")),
                 extra_body=qwen_extra_body(),
+            ),
+            allow_interruptions=env_bool("TANYUE_ALLOW_INTERRUPTION", True),
+            min_interruption_duration=float(os.environ.get("TANYUE_MIN_INTERRUPTION_DURATION", "0.65")),
+            min_interruption_words=int(os.environ.get("TANYUE_MIN_INTERRUPTION_WORDS", "2")),
+            false_interruption_timeout=float(os.environ.get("TANYUE_FALSE_INTERRUPTION_TIMEOUT", "1.2")),
+            resume_false_interruption=env_bool("TANYUE_RESUME_FALSE_INTERRUPTION", True),
+            agent_false_interruption_timeout=float(
+                os.environ.get("TANYUE_AGENT_FALSE_INTERRUPTION_TIMEOUT", "1.0")
             ),
         )
 

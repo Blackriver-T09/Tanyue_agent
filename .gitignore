@@ -4,6 +4,10 @@ Config.py
 .env.*
 !.env.example
 !*.example
+voice/.cosyvoice_voice_id
+voice/reference_voice.*
+voice/reference.wav
+voice/tmp/
 
 # Python cache and build artifacts
 __pycache__/

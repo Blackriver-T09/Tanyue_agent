@@ -52,6 +52,8 @@ conda run -n Tanyue python -m pip install -r voice/requirements-livekit.txt
 - `Config.py`
 - `.env`
 - `.env.*`
+- `voice/reference_voice.*` / `voice/reference.wav`
+- `voice/.cosyvoice_voice_id`
 - Python 缓存
 - 模型权重和输出文件
 
@@ -85,12 +87,27 @@ TANYUE_QWEN_ENABLE_THINKING=0
 TANYUE_QWEN_MAX_COMPLETION_TOKENS=48
 TANYUE_QWEN_TEMPERATURE=0.6
 
-TANYUE_COSYVOICE_MODEL=cosyvoice-v1
+TANYUE_COSYVOICE_MODEL=cosyvoice-v3.5-plus
 TANYUE_COSYVOICE_VOICE=longxiaochun
+TANYUE_COSYVOICE_INSTRUCTION=
 TANYUE_COSYVOICE_ENABLE_STYLE_PARAMS=0
+TANYUE_COSYVOICE_CLONE_ENABLED=1
+TANYUE_COSYVOICE_REFERENCE_AUDIO=voice/reference.wav
+TANYUE_COSYVOICE_CLONE_CACHE=voice/.cosyvoice_voice_id
 ```
 
 实时语音默认关闭 Qwen thinking。这个设置对延迟非常关键：实测默认 thinking 的首 token 可能接近 10 秒，关闭后通常进入亚秒级。
+
+CosyVoice 现在默认使用阿里云声音复刻。`voice/reference.wav` 是本地参考音频，不提交到 Git。首次创建复刻音色需要一个阿里云服务端可访问的公网音频 URL：
+
+```bash
+TANYUE_COSYVOICE_CLONE_AUDIO_URL=https://your-valid-public-url/reference.wav \
+python tanyue_agent.py clone-voice --force
+```
+
+创建成功后，voice_id 会写入 `voice/.cosyvoice_voice_id`。后续实时对话直接复用缓存 voice_id，不再上传参考音频。
+
+如果参考音频是 44.1kHz stereo，建议先转成 24kHz mono 再注册，减少音高异常、低沉或抖动。
 
 ## 启动实时语音 Agent
 
@@ -121,7 +138,7 @@ python tanyue_agent.py start
 
 ```text
 registered worker
-Tanyue job accepted ... qwen_thinking=False ... cosyvoice_model=cosyvoice-v1 voice=longxiaochun
+Tanyue job accepted ... qwen_thinking=False ... cosyvoice_model=cosyvoice-v3.5-plus voice=longxiaochun
 Aliyun STT stream connected
 ```
 
@@ -173,8 +190,10 @@ tanyue-test-1
 - Qwen 使用 OpenAI-compatible streaming。
 - 默认关闭 Qwen thinking，降低首 token 延迟。
 - 限制 Qwen 回复长度，避免语音回复过长。
-- CosyVoice 使用流式 `streaming_call()`，Qwen 产出的文本片段会立即送入 TTS。
+- CosyVoice 使用复刻 voice_id 和流式 `streaming_call()`，Qwen 产出的文本片段会立即送入 TTS。
 - CosyVoice PCM 回调直接转 LiveKit `AudioFrame`，不落盘。
+- 当前默认不向 TTS 传情感提示词；如果复刻音色稳定后再需要风格控制，可重新设置 `TANYUE_COSYVOICE_INSTRUCTION` 并打开 `TANYUE_COSYVOICE_ENABLE_STYLE_PARAMS=1`。
+- 浏览器麦克风轨道启用回声消除、降噪和自动增益。Agent 仍允许用户打断，但默认要求至少 `0.65s` 且至少 `2` 个词才认为是真打断，避免把 Agent 自己的语音回声误识别成“嗯”等新输入。
 
 当前观察到的体感延迟：用户说完后约 1 秒左右开始播放 Agent 语音。剩余延迟主要来自云端首 token、TTS 首包和网络往返。
 
@@ -184,6 +203,7 @@ tanyue-test-1
 - 页面能连接但没有 Agent：确认 `python tanyue_agent.py start` 仍在运行，并查看 `python tanyue_agent.py status --room <room>`。
 - 能显示用户转录但没有回复：看 worker 日志中是否出现 `Aliyun CosyVoice TTS error` 或 Qwen API 错误。
 - 从说完话到开始说话超过数秒：确认日志里 `qwen_thinking=False`。
+- Agent 说话时被自己的声音打断：优先使用耳机或降低扬声器音量，并确认浏览器麦克风权限对应的是正确输入设备。可调高 `TANYUE_MIN_INTERRUPTION_WORDS` 或 `TANYUE_MIN_INTERRUPTION_DURATION`，也可临时设置 `TANYUE_ALLOW_INTERRUPTION=0` 完全关闭打断。
 - `InsecureKeyLengthWarning`：本地 `devsecret` 太短，仅开发环境可接受；正式部署需要替换强密钥。
 - `/.well-known/appspecific/com.chrome.devtools.json 404`：Chrome/Edge DevTools 探测请求，可忽略。
 
@@ -232,3 +252,12 @@ TANYUE_QWEN_ENABLE_THINKING=0
 ```
 
 Realtime voice should keep Qwen thinking disabled. Otherwise first-token latency can jump from sub-second to several seconds.
+
+CosyVoice uses a cloned voice by default. Create or refresh the cloned voice with a public reference-audio URL:
+
+```bash
+TANYUE_COSYVOICE_CLONE_AUDIO_URL=https://your-valid-public-url/reference.wav \
+python tanyue_agent.py clone-voice --force
+```
+
+The generated voice_id is cached in `voice/.cosyvoice_voice_id`. TTS style instructions are disabled by default while validating cloned-voice quality.

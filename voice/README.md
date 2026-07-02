@@ -58,8 +58,13 @@ cp voice/.env.livekit.example voice/.env
 - `TANYUE_QWEN_MAX_COMPLETION_TOKENS=48`，限制回复长度，避免语音回复拖太长
 - `TANYUE_STT_PROVIDER=aliyun`
 - `TANYUE_ALIYUN_STT_MODEL=fun-asr-realtime`
-- `TANYUE_COSYVOICE_MODEL=cosyvoice-v1`
+- `TANYUE_COSYVOICE_MODEL=cosyvoice-v3.5-plus`
 - `TANYUE_COSYVOICE_VOICE=longxiaochun`
+- `TANYUE_COSYVOICE_INSTRUCTION=`，默认不传情感提示词
+- `TANYUE_COSYVOICE_ENABLE_STYLE_PARAMS=0`
+- `TANYUE_COSYVOICE_CLONE_ENABLED=1`
+- `TANYUE_COSYVOICE_REFERENCE_AUDIO=voice/reference.wav`
+- `TANYUE_COSYVOICE_CLONE_CACHE=voice/.cosyvoice_voice_id`
 
 `voice/.env` 和项目根目录 `.env` 都会被自动读取；真实密钥已被 `.gitignore` 忽略。
 
@@ -129,14 +134,61 @@ python tanyue_agent.py web
 
 Agent 名称默认是 `tanyue`，可通过 `TANYUE_LIVEKIT_AGENT_NAME` 修改。
 
-## 4. 排障
+## 4. 声音复刻
+
+当前 TTS 默认使用阿里云 CosyVoice 声音复刻。流程是：
+
+1. 使用参考音频创建阿里云 voice_id。
+2. 将 voice_id 缓存到 `voice/.cosyvoice_voice_id`。
+3. 实时对话时直接把缓存 voice_id 作为 `voice` 参数传给 CosyVoice。
+
+参考音频：
+
+```text
+voice/reference.wav
+```
+
+注意：阿里云 `voice-enrollment` 创建音色时需要公网可访问的音频 URL，本地文件路径不能直接传给云端。首次创建或强制刷新时使用：
+
+```bash
+TANYUE_COSYVOICE_CLONE_AUDIO_URL=https://your-valid-public-url/reference.wav \
+python tanyue_agent.py clone-voice --force
+```
+
+如果参考音频是 44.1kHz stereo，建议先转成 24kHz mono 再注册，减少音高异常、低沉或抖动：
+
+```bash
+ffmpeg -y -i voice/reference.wav -ac 1 -ar 24000 -sample_fmt s16 \
+  -af "highpass=f=70,lowpass=f=11000,loudnorm=I=-18:TP=-2:LRA=11" \
+  voice/tmp/reference_24k_mono.wav
+```
+
+创建成功后可以直接运行：
+
+```bash
+python tanyue_agent.py start
+```
+
+如果 `voice/.cosyvoice_voice_id` 已存在，worker 启动时会直接复用缓存，不会重新上传或重新复刻。
+
+当前默认不向 TTS 传情感提示词。声音复刻质量稳定后，如需重新启用风格控制，可设置：
+
+```bash
+TANYUE_COSYVOICE_INSTRUCTION=成熟，鄙夷，魅惑
+TANYUE_COSYVOICE_ENABLE_STYLE_PARAMS=1
+```
+
+## 5. 排障
 
 如果页面能显示用户转录，但没有 Agent 文本或语音回复，优先看 `python tanyue_agent.py start` 的后台日志：
 
 - 看到 `Aliyun STT final transcript`：说明麦克风、LiveKit、阿里云 STT 都已经正常。
 - 看到 `Tanyue job accepted`：确认当前实际使用的 `qwen_model`、`qwen_thinking`、`qwen_max_tokens`、`cosyvoice_model` 和 `voice`。
+- 看到 `Using cached Aliyun cloned voice_id`：说明声音复刻缓存已生效。
+- 创建复刻音色时报 `url error`：说明 `TANYUE_COSYVOICE_CLONE_AUDIO_URL` 不是阿里云服务端可访问的有效公网 URL，建议使用 OSS 或有效证书的 HTTPS 静态文件地址。
 - 如果 `Aliyun STT final transcript` 到 `Aliyun CosyVoice first text chunk sent` 间隔很长，通常是 LLM 首 token 慢。实时语音默认设置 `TANYUE_QWEN_ENABLE_THINKING=0`；如果打开 thinking，首 token 可能从亚秒级变成数秒级。
-- 看到 `Aliyun CosyVoice TTS error ... 428`：通常是 CosyVoice 模型或音色参数不匹配。默认已改为 `cosyvoice-v1 / longxiaochun`，并会自动忽略旧的 `cosyvoice-v3-flash / longanyang` 组合，除非显式设置 `TANYUE_COSYVOICE_ALLOW_LEGACY=1`。
+- 如果 Agent 说话时被自己的声音打断，通常是扬声器回灌到麦克风。浏览器端已经启用回声消除、降噪和自动增益；Agent 端默认要求至少 `TANYUE_MIN_INTERRUPTION_DURATION=0.65` 秒且至少 `TANYUE_MIN_INTERRUPTION_WORDS=2` 个词才触发打断。仍然误触发时，优先使用耳机或降低扬声器音量，也可以调高这两个阈值，或设置 `TANYUE_ALLOW_INTERRUPTION=0` 完全关闭打断。
+- 看到 `Aliyun CosyVoice TTS error ... 428`：通常是 CosyVoice 模型或音色参数不匹配。默认已改为 `cosyvoice-v3.5-plus / longxiaochun`，并会自动忽略旧的 `cosyvoice-v3-flash / longanyang` 组合，除非显式设置 `TANYUE_COSYVOICE_ALLOW_LEGACY=1`。
 
 修改配置或代码后，需要重启 Agent worker：
 
@@ -146,13 +198,13 @@ python tanyue_agent.py start
 
 如果房间里残留了旧 dispatch，可在 Web 页面换一个新的 Room 名称，或重启本地 LiveKit Server。
 
-## 5. 实现结构
+## 6. 实现结构
 
 - `LiveKit/docker-compose.yml`：本地 LiveKit Server。
 - `LiveKit/livekit.local.yaml`：本地 RTC 服务配置。
 - `voice/scripts/livekit_voice_agent.py`：LiveKit Agent 启动入口。
 - `voice/tanyue_livekit/aliyun_stt.py`：把 LiveKit `AudioFrame` 转成阿里云 Fun-ASR 实时识别输入，并把识别回调转换成 LiveKit `SpeechEvent`。
-- `voice/tanyue_livekit/aliyun_cosyvoice.py`：把阿里云 CosyVoice 的 PCM 流转换成 LiveKit `AudioFrame`。
+- `voice/tanyue_livekit/aliyun_cosyvoice.py`：创建/缓存 CosyVoice 复刻 voice_id，并把阿里云 CosyVoice 的 PCM 流转换成 LiveKit `AudioFrame`。
 - `tanyue_agent.py`：项目根目录统一入口，负责 LiveKit Agent CLI 转发和 Web UI。
 - `web/tanyue_livekit.html`：浏览器语音入口，负责加入 LiveKit 房间、发布麦克风音频、播放 Agent 音频。
 - `voice/.env.livekit.example`：环境变量模板。
@@ -196,6 +248,15 @@ Main files:
 - `web/tanyue_livekit.html`: browser client for room join, microphone publishing, and assistant audio playback.
 - `voice/requirements-livekit.txt`: dependencies.
 - `voice/.env.livekit.example`: configuration template.
+
+CosyVoice now uses Aliyun voice cloning by default. The reference audio is `voice/reference.wav`, but creating a cloned voice requires a public audio URL that Aliyun can fetch. Create or refresh the cloned voice with:
+
+```bash
+TANYUE_COSYVOICE_CLONE_AUDIO_URL=https://your-valid-public-url/reference.wav \
+python tanyue_agent.py clone-voice --force
+```
+
+The returned voice_id is cached in `voice/.cosyvoice_voice_id`; realtime sessions reuse the cached voice_id and do not upload the reference audio again. TTS style instructions are disabled by default while validating cloned-voice quality.
 
 Aliyun CosyVoice is used through the official Python SDK streaming API. Qwen text chunks are forwarded to CosyVoice immediately with `streaming_call()` instead of waiting for the full reply. Returned PCM bytes are converted directly into LiveKit audio frames. The remaining first-audio latency depends on Qwen first-token time, CosyVoice websocket setup, and CosyVoice's own minimum text/acoustic context.
 

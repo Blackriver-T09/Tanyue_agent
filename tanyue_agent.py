@@ -247,6 +247,16 @@ def run_status(args: argparse.Namespace) -> None:
         print("  - none")
 
 
+def run_clone_voice(args: argparse.Namespace) -> None:
+    from voice.scripts.livekit_voice_agent import dashscope_api_key
+    from voice.tanyue_livekit.aliyun_cosyvoice import AliyunCosyVoiceTTS, config_from_env
+
+    api_key = dashscope_api_key()
+    tts = AliyunCosyVoiceTTS(config_from_env(api_key=api_key))
+    voice_id = tts.ensure_cloned_voice(force=args.force)
+    print(f"voice_id={voice_id}")
+
+
 def run_web(args: argparse.Namespace) -> None:
     import uvicorn
 
@@ -268,6 +278,8 @@ def main() -> int:
     web_parser.add_argument("--port", type=int, default=8893)
     status_parser = subparsers.add_parser("status", help="Print LiveKit room, participant, and agent dispatch status.")
     status_parser.add_argument("--room", default="tanyue-room")
+    clone_parser = subparsers.add_parser("clone-voice", help="Create or refresh the Aliyun CosyVoice cloned voice.")
+    clone_parser.add_argument("--force", action="store_true", help="Ignore the cached voice_id and create a new cloned voice.")
 
     if len(sys.argv) == 1 or sys.argv[1] in {"-h", "--help"}:
         parser.print_help()
@@ -286,6 +298,11 @@ def main() -> int:
     if sys.argv[1] == "status":
         args = parser.parse_args()
         run_status(args)
+        return 0
+
+    if sys.argv[1] == "clone-voice":
+        args = parser.parse_args()
+        run_clone_voice(args)
         return 0
 
     run_livekit_agent()
