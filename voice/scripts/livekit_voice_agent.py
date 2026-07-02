@@ -162,9 +162,10 @@ class TanyueAssistant:
             default_motion = "angry" if "angry" in valid_motions else next(iter(valid_motions), "angry")
 
         class _Assistant(Agent):
-            def __init__(self, tts: AliyunCosyVoiceTTS) -> None:
+            def __init__(self, tts: AliyunCosyVoiceTTS, room=None) -> None:
                 self._aliyun_tts = tts
                 self._character = build_character_agent()
+                self._room = room
                 self._valid_motions = valid_motions
                 self._default_motion = default_motion
                 super().__init__(
@@ -202,10 +203,12 @@ class TanyueAssistant:
                 yield reply
 
             async def tts_node(self, text, model_settings):
+                self._publish_voice_state(True)
                 try:
                     async for frame in self._aliyun_tts.synthesize_frames(text):
                         yield frame
                 finally:
+                    self._publish_voice_state(False)
                     self._play_character_idle()
 
             def _play_character_motion(self, motion: str) -> None:
@@ -223,6 +226,25 @@ class TanyueAssistant:
                     self._character.command("playIdleMotion")
                 except Exception as exc:  # noqa: BLE001
                     LOGGER.info("Character idle command skipped: %s", exc)
+
+            def _publish_voice_state(self, speaking: bool) -> None:
+                try:
+                    local_participant = getattr(self._room, "local_participant", None)
+                    if not local_participant:
+                        return
+                    local_participant.publish_data(
+                        json.dumps(
+                            {
+                                "type": "assistant_speaking",
+                                "speaking": speaking,
+                            },
+                            ensure_ascii=False,
+                        ),
+                        reliable=True,
+                        topic="tanyue.control",
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.info("Could not publish assistant voice state: %s", exc)
 
         self.cls = _Assistant
 
@@ -326,7 +348,7 @@ def build_server():
 
         await session.start(
             room=ctx.room,
-            agent=assistant_factory(cosyvoice),
+            agent=assistant_factory(cosyvoice, ctx.room),
         )
         LOGGER.info("Tanyue session started: room=%s", getattr(ctx.room, "name", "unknown"))
 

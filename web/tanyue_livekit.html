@@ -231,6 +231,10 @@
         font-size: 13px;
         line-height: 1.45;
       }
+      .call-state.mic-paused {
+        border-color: rgba(160, 97, 0, 0.35);
+        background: #fff8eb;
+      }
       .meter {
         height: 8px;
         margin-top: 12px;
@@ -396,8 +400,15 @@
       let room = null;
       let micTrack = null;
       let audioContext = null;
+      let remoteAudioContext = null;
+      let remoteAudioSource = null;
+      let remoteAudioAnalyser = null;
+      let remoteAudioMonitorTimer = null;
+      let remoteAudioLastAudibleAt = 0;
       let meterTimer = null;
       let statusTimer = null;
+      let micResumeTimer = null;
+      let micPausedByAssistant = false;
       let lastStatusLine = "";
 
       function setStatus(text, className = "") {
@@ -416,6 +427,107 @@
       function setCallState(title, text) {
         callStateTitle.textContent = title;
         callStateText.textContent = text;
+      }
+
+      async function setMicInputPaused(paused, reason = "") {
+        if (!micTrack) return;
+        if (paused === micPausedByAssistant) return;
+        micPausedByAssistant = paused;
+        const stateBox = callStateTitle.closest(".call-state");
+        stateBox?.classList.toggle("mic-paused", paused);
+
+        try {
+          if (paused) {
+            if (typeof micTrack.mute === "function") {
+              await micTrack.mute();
+            } else if (micTrack.mediaStreamTrack) {
+              micTrack.mediaStreamTrack.enabled = false;
+            }
+            setCallState("Assistant speaking", reason || "Agent 正在说话，已暂时暂停麦克风输入。");
+          } else {
+            if (typeof micTrack.unmute === "function") {
+              await micTrack.unmute();
+            } else if (micTrack.mediaStreamTrack) {
+              micTrack.mediaStreamTrack.enabled = true;
+            }
+            setCallState("Listening", "麦克风已恢复。请直接说话，说完后等待回复。");
+          }
+        } catch (err) {
+          log(err instanceof Error ? err.message : String(err), "error");
+        }
+      }
+
+      function scheduleMicResume(delayMs = 700) {
+        if (micResumeTimer) window.clearTimeout(micResumeTimer);
+        micResumeTimer = window.setTimeout(() => {
+          setMicInputPaused(false).catch((err) => {
+            log(err instanceof Error ? err.message : String(err), "error");
+          });
+        }, delayMs);
+      }
+
+      function handleControlMessage(text) {
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          return false;
+        }
+        if (data?.type !== "assistant_speaking") return false;
+        if (data.speaking) {
+          if (micResumeTimer) window.clearTimeout(micResumeTimer);
+          setMicInputPaused(true, "Agent 正在生成语音，已暂停麦克风输入。").catch((err) => {
+            log(err instanceof Error ? err.message : String(err), "error");
+          });
+        } else {
+          scheduleMicResume(650);
+        }
+        return true;
+      }
+
+      function ensureRemoteAudioMonitor() {
+        if (remoteAudioMonitorTimer) return;
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        remoteAudioContext ||= new AudioContextClass();
+        if (!remoteAudioSource) {
+          remoteAudioSource = remoteAudioContext.createMediaElementSource(audioEl);
+          remoteAudioAnalyser = remoteAudioContext.createAnalyser();
+          remoteAudioAnalyser.fftSize = 512;
+          remoteAudioAnalyser.smoothingTimeConstant = 0.18;
+          remoteAudioSource.connect(remoteAudioAnalyser);
+          remoteAudioAnalyser.connect(remoteAudioContext.destination);
+        }
+
+        const data = new Uint8Array(remoteAudioAnalyser.fftSize);
+        remoteAudioMonitorTimer = window.setInterval(() => {
+          if (!remoteAudioAnalyser) return;
+          remoteAudioAnalyser.getByteTimeDomainData(data);
+          let sum = 0;
+          for (const sample of data) {
+            const centered = (sample - 128) / 128;
+            sum += centered * centered;
+          }
+          const rms = Math.sqrt(sum / data.length);
+          const now = performance.now();
+          if (rms > 0.018) {
+            remoteAudioLastAudibleAt = now;
+            if (micResumeTimer) window.clearTimeout(micResumeTimer);
+            setMicInputPaused(true, "检测到 Agent 音频正在播放，已暂停麦克风输入。").catch((err) => {
+              log(err instanceof Error ? err.message : String(err), "error");
+            });
+          } else if (micPausedByAssistant && now - remoteAudioLastAudibleAt > 900) {
+            scheduleMicResume(150);
+          }
+        }, 80);
+      }
+
+      function stopRemoteAudioMonitor() {
+        if (remoteAudioMonitorTimer) {
+          window.clearInterval(remoteAudioMonitorTimer);
+          remoteAudioMonitorTimer = null;
+        }
+        remoteAudioLastAudibleAt = 0;
       }
 
       function participantName(participant) {
@@ -537,16 +649,42 @@
           room.on(RoomEvent.TrackSubscribed, (track) => {
             if (track.kind === "audio") {
               track.attach(audioEl);
-              setCallState("Assistant speaking", "正在播放 Agent 的回复。");
+              audioEl.addEventListener("playing", () => {
+                remoteAudioContext?.resume?.();
+                ensureRemoteAudioMonitor();
+                setMicInputPaused(true, "正在播放 Agent 的回复，已暂停麦克风输入。").catch((err) => {
+                  log(err instanceof Error ? err.message : String(err), "error");
+                });
+              });
+              audioEl.addEventListener("pause", () => scheduleMicResume(450));
+              audioEl.addEventListener("ended", () => scheduleMicResume(450));
               log("assistant audio subscribed");
             }
           });
 
           room.on(RoomEvent.TrackUnsubscribed, (track) => {
             if (track.kind === "audio") {
-              setCallState("Listening", "请直接说话，说完后等待回复。");
+              stopRemoteAudioMonitor();
+              scheduleMicResume(250);
             }
           });
+
+          if (RoomEvent.ActiveSpeakersChanged) {
+            room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+              const localIdentity = room?.localParticipant?.identity;
+              const assistantSpeaking = speakers.some((participant) => {
+                return participant.identity && participant.identity !== localIdentity;
+              });
+              if (assistantSpeaking) {
+                if (micResumeTimer) window.clearTimeout(micResumeTimer);
+                setMicInputPaused(true, "检测到 Agent 正在说话，已暂停麦克风输入。").catch((err) => {
+                  log(err instanceof Error ? err.message : String(err), "error");
+                });
+              } else {
+                scheduleMicResume(750);
+              }
+            });
+          }
 
           room.on(RoomEvent.ParticipantConnected, (participant) => {
             log(`${participantName(participant)} joined`);
@@ -567,6 +705,7 @@
 
           room.on(RoomEvent.DataReceived, (payload, participant) => {
             const text = new TextDecoder().decode(payload);
+            if (handleControlMessage(text)) return;
             log(`${participant?.identity || "data"}: ${text}`);
           });
 
@@ -617,10 +756,12 @@
 
       async function disconnect() {
         if (micTrack) {
+          await setMicInputPaused(false);
           micTrack.stop();
           micTrack = null;
         }
         stopMicMeter();
+        stopRemoteAudioMonitor();
         stopStatusPolling();
         if (room) {
           room.disconnect();

@@ -407,10 +407,14 @@ function frameVrm(vrm) {
   const size = box.getSize(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z, 1);
   const fov = THREE.MathUtils.degToRad(camera.fov);
-  const distance = (maxDim / (2 * Math.tan(fov / 2))) * 1.25;
+  const verticalDistance = size.y / (2 * Math.tan(fov / 2));
+  const horizontalFov = 2 * Math.atan(Math.tan(fov / 2) * camera.aspect);
+  const horizontalDistance = size.x / (2 * Math.tan(horizontalFov / 2));
+  const distance = Math.max(verticalDistance, horizontalDistance, maxDim) * 1.18;
+  const targetY = center.y + size.y * 0.1;
 
-  orbit.target.set(center.x, center.y + size.y * 0.03, center.z);
-  camera.position.set(center.x, center.y + size.y * 0.08, center.z + distance);
+  orbit.target.set(center.x, targetY, center.z);
+  camera.position.set(center.x, targetY + size.y * 0.02, center.z + distance);
   camera.near = Math.max(distance / 100, 0.01);
   camera.far = distance * 100;
   camera.updateProjectionMatrix();
@@ -908,7 +912,7 @@ async function loadVrm() {
       }
 
       currentVrm = vrm;
-      currentVrm.scene.rotation.y = Math.PI;
+      currentVrm.scene.rotation.y = 0;
       currentVrm.scene.traverse((obj) => {
         obj.frustumCulled = false;
       });

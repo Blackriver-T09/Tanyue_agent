@@ -194,7 +194,7 @@ TANYUE_COSYVOICE_ENABLE_STYLE_PARAMS=1
 - 看到 `Using cached Aliyun cloned voice_id`：说明声音复刻缓存已生效。
 - 创建复刻音色时报 `url error`：说明 `TANYUE_COSYVOICE_CLONE_AUDIO_URL` 不是阿里云服务端可访问的有效公网 URL，建议使用 OSS 或有效证书的 HTTPS 静态文件地址。
 - 如果 `Aliyun STT final transcript` 到 `Aliyun CosyVoice first text chunk sent` 间隔很长，通常是 LLM 首 token 慢。实时语音默认设置 `TANYUE_QWEN_ENABLE_THINKING=0`；如果打开 thinking，首 token 可能从亚秒级变成数秒级。
-- 如果 Agent 说话时被自己的声音打断，通常是扬声器回灌到麦克风。浏览器端已经启用回声消除、降噪和自动增益；Agent 端默认要求至少 `TANYUE_MIN_INTERRUPTION_DURATION=0.65` 秒且至少 `TANYUE_MIN_INTERRUPTION_WORDS=2` 个词才触发打断。仍然误触发时，优先使用耳机或降低扬声器音量，也可以调高这两个阈值，或设置 `TANYUE_ALLOW_INTERRUPTION=0` 完全关闭打断。
+- 如果 Agent 说话时被自己的声音打断，通常是扬声器回灌到麦克风。浏览器端已经启用回声消除、降噪和自动增益；Agent 开始/结束 TTS 时还会通过 LiveKit data channel 通知前端临时 mute/恢复本地麦克风，远端音频电平检测作为兜底。Agent 端默认要求至少 `TANYUE_MIN_INTERRUPTION_DURATION=0.65` 秒且至少 `TANYUE_MIN_INTERRUPTION_WORDS=2` 个词才触发打断。仍然误触发时，优先使用耳机或降低扬声器音量，也可以调高这两个阈值，或设置 `TANYUE_ALLOW_INTERRUPTION=0` 完全关闭打断。
 - 看到 `Aliyun CosyVoice TTS error ... 428`：通常是 CosyVoice 模型或音色参数不匹配。默认已改为 `cosyvoice-v3.5-plus / longxiaochun`，并会自动忽略旧的 `cosyvoice-v3-flash / longanyang` 组合，除非显式设置 `TANYUE_COSYVOICE_ALLOW_LEGACY=1`。
 
 修改配置或代码后，需要重启 Agent worker：

@@ -209,6 +209,7 @@ tanyue-test-1
 - CosyVoice PCM 回调直接转 LiveKit `AudioFrame`，不落盘。
 - 当前默认不向 TTS 传情感提示词；如果复刻音色稳定后再需要风格控制，可重新设置 `TANYUE_COSYVOICE_INSTRUCTION` 并打开 `TANYUE_COSYVOICE_ENABLE_STYLE_PARAMS=1`。
 - 浏览器麦克风轨道启用回声消除、降噪和自动增益。Agent 仍允许用户打断，但默认要求至少 `0.65s` 且至少 `2` 个词才认为是真打断，避免把 Agent 自己的语音回声误识别成“嗯”等新输入。
+- Agent 播放语音时会通过 LiveKit data channel 通知前端临时 mute 本地麦克风；前端也保留远端音频电平检测作为兜底，连续静音后再恢复输入，进一步避免扬声器回灌造成自我对话。
 
 当前观察到的体感延迟：用户说完后约 1 秒左右开始播放 Agent 语音。剩余延迟主要来自云端首 token、TTS 首包和网络往返。
 
@@ -219,6 +220,7 @@ tanyue-test-1
 - 能显示用户转录但没有回复：看 worker 日志中是否出现 `Aliyun CosyVoice TTS error` 或 Qwen API 错误。
 - 从说完话到开始说话超过数秒：确认日志里 `qwen_thinking=False`。
 - Agent 说话时被自己的声音打断：优先使用耳机或降低扬声器音量，并确认浏览器麦克风权限对应的是正确输入设备。可调高 `TANYUE_MIN_INTERRUPTION_WORDS` 或 `TANYUE_MIN_INTERRUPTION_DURATION`，也可临时设置 `TANYUE_ALLOW_INTERRUPTION=0` 完全关闭打断。
+- 如果你看到页面提示 `Assistant speaking`，这是前端正在保护麦克风输入；等待 Agent 说完后会自动恢复为 `Listening`。
 - `InsecureKeyLengthWarning`：本地 `devsecret` 太短，仅开发环境可接受；正式部署需要替换强密钥。
 - `/.well-known/appspecific/com.chrome.devtools.json 404`：Chrome/Edge DevTools 探测请求，可忽略。
 
