@@ -6,6 +6,8 @@ import sys
 import importlib
 import json
 import logging
+import math
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -47,6 +49,8 @@ from voice.tanyue_livekit.aliyun_cosyvoice import config_from_env
 from voice.tanyue_livekit.aliyun_stt import config_from_env as stt_config_from_env
 
 LOGGER = logging.getLogger("tanyue.livekit")
+
+VALID_EXPRESSIONS = {"neutral", "happy", "relaxed", "sad", "surprised", "angry"}
 
 
 def dashscope_api_key() -> str:
@@ -116,7 +120,12 @@ def motion_prompt(manifest: dict[str, Any]) -> str:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 
-def parse_assistant_payload(raw: str, valid_motions: set[str], default_motion: str) -> tuple[str, str]:
+def parse_assistant_payload(
+    raw: str,
+    valid_motions: set[str],
+    default_motion: str,
+    default_expression: str = "relaxed",
+) -> tuple[str, str, str]:
     text = raw.strip()
     if text.startswith("```"):
         text = text.strip("`")
@@ -138,13 +147,33 @@ def parse_assistant_payload(raw: str, valid_motions: set[str], default_motion: s
             continue
         reply = str(payload.get("reply") or payload.get("text") or "").strip()
         motion = str(payload.get("motion") or payload.get("action") or default_motion).strip()
+        expression = str(payload.get("expression") or payload.get("face") or default_expression).strip()
         if motion not in valid_motions:
             motion = default_motion
+        if expression not in VALID_EXPRESSIONS:
+            expression = default_expression
         if reply:
-            return reply, motion
+            return reply, motion, expression
 
     LOGGER.warning("Could not parse assistant motion payload, speaking raw text: %s", raw[:300])
-    return raw.strip(), default_motion
+    return raw.strip(), default_motion, default_expression
+
+
+def audio_frame_lip_level(frame: Any, *, gain: float = 7.0, noise_floor: float = 0.01) -> float:
+    data = bytes(getattr(frame, "data", b""))
+    if len(data) < 2:
+        return 0.0
+    if len(data) % 2:
+        data = data[:-1]
+    samples = memoryview(data).cast("h")
+    if not samples:
+        return 0.0
+    # CosyVoice emits 16-bit PCM. RMS gives a stable mouth-open envelope for VRM expressions.
+    square_sum = 0
+    for sample in samples:
+        square_sum += sample * sample
+    rms = math.sqrt(square_sum / len(samples)) / 32768.0
+    return min(1.0, max(0.0, (rms - noise_floor) * gain))
 
 
 class TanyueAssistant:
@@ -168,14 +197,22 @@ class TanyueAssistant:
                 self._room = room
                 self._valid_motions = valid_motions
                 self._default_motion = default_motion
+                self._speaking_expression = "relaxed"
+                self._lip_sync_enabled = env_bool("TANYUE_CHARACTER_LIP_SYNC_ENABLED", True)
+                self._lip_sync_interval = float(os.environ.get("TANYUE_CHARACTER_LIP_SYNC_INTERVAL", "0.08"))
+                self._lip_sync_gain = float(os.environ.get("TANYUE_CHARACTER_LIP_SYNC_GAIN", "7.0"))
+                self._lip_sync_noise_floor = float(os.environ.get("TANYUE_CHARACTER_LIP_SYNC_NOISE_FLOOR", "0.01"))
+                self._last_lip_sync_at = 0.0
+                self._last_lip_sync_level = 0.0
                 super().__init__(
                     instructions=(
                         "你是Tanyue的实时语音数字人。"
                         "用中文自然口语回复，默认只说一句，尽量不超过30个汉字。"
                         "不要追问，不要输出列表，不要解释系统实现。"
                         "你必须只输出一个JSON对象，不要使用Markdown代码块。"
-                        "JSON格式：{\"reply\":\"要说给用户的话\",\"motion\":\"动作id\"}。"
-                        "reply会被朗读，motion只用于控制数字人，不能把动作id说出来。"
+                        "JSON格式：{\"reply\":\"要说给用户的话\",\"motion\":\"动作id\",\"expression\":\"表情id\"}。"
+                        "reply会被朗读，motion和expression只用于控制数字人，不能把动作id或表情id说出来。"
+                        "expression只能从neutral、happy、relaxed、sad、surprised、angry中选择。"
                         f"可选动作清单：{motion_manifest_text}。"
                         f"没有明确更合适动作时使用默认待机动作：{default_motion}。"
                         f"当前日期上下文：{today_context()}。"
@@ -194,30 +231,42 @@ class TanyueAssistant:
                     if content:
                         chunks.append(content)
 
-                reply, motion = parse_assistant_payload(
+                reply, motion, expression = parse_assistant_payload(
                     "".join(chunks),
                     self._valid_motions,
                     self._default_motion,
                 )
-                self._play_character_motion(motion)
+                self._speaking_expression = expression
+                self._play_character_motion(motion, expression)
                 yield reply
 
             async def tts_node(self, text, model_settings):
                 await self._publish_voice_state(True)
                 try:
                     async for frame in self._aliyun_tts.synthesize_frames(text):
+                        self._send_lip_sync_frame(frame)
                         yield frame
                 finally:
+                    self._send_lip_sync_level(0.0, force=True)
+                    self._reset_character_face()
                     await self._publish_voice_state(False)
 
-            def _play_character_motion(self, motion: str) -> None:
+            def _play_character_motion(self, motion: str, expression: str) -> None:
                 if not self._character:
                     return
                 try:
-                    self._character.play_motion(
-                        motion,
-                        loop=motion == self._default_motion,
-                        speed=1.0,
+                    self._character.batch(
+                        [
+                            {
+                                "type": "setState",
+                                "payload": {
+                                    "expression": expression,
+                                    "motionLoop": motion == self._default_motion,
+                                    "motionSpeed": 1.0,
+                                },
+                            },
+                            {"type": "playMotion", "motion": motion},
+                        ]
                     )
                 except Exception as exc:  # noqa: BLE001
                     LOGGER.info("Character motion command skipped: %s", exc)
@@ -226,9 +275,54 @@ class TanyueAssistant:
                 if not self._character:
                     return
                 try:
-                    self._character.command("playIdleMotion")
+                    self._character.batch(
+                        [
+                            {"type": "setLipSyncLevel", "level": 0.0},
+                            {"type": "setExpression", "expression": "relaxed"},
+                            {"type": "playIdleMotion"},
+                        ]
+                    )
                 except Exception as exc:  # noqa: BLE001
                     LOGGER.info("Character idle command skipped: %s", exc)
+
+            def _reset_character_face(self) -> None:
+                if not self._character:
+                    return
+                try:
+                    self._character.batch(
+                        [
+                            {"type": "setLipSyncLevel", "level": 0.0},
+                            {"type": "setExpression", "expression": "relaxed"},
+                        ]
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.debug("Character face reset skipped: %s", exc)
+
+            def _send_lip_sync_frame(self, frame: Any) -> None:
+                if not self._lip_sync_enabled:
+                    return
+                level = audio_frame_lip_level(
+                    frame,
+                    gain=self._lip_sync_gain,
+                    noise_floor=self._lip_sync_noise_floor,
+                )
+                self._send_lip_sync_level(level)
+
+            def _send_lip_sync_level(self, level: float, *, force: bool = False) -> None:
+                if not self._character or not self._lip_sync_enabled:
+                    return
+                now = time.monotonic()
+                if not force:
+                    if now - self._last_lip_sync_at < self._lip_sync_interval:
+                        return
+                    if abs(level - self._last_lip_sync_level) < 0.035:
+                        return
+                self._last_lip_sync_at = now
+                self._last_lip_sync_level = level
+                try:
+                    self._character.set_lip_sync_level(level)
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.debug("Character lip sync command skipped: %s", exc)
 
             async def _publish_voice_state(self, speaking: bool) -> None:
                 try:

@@ -153,7 +153,16 @@ Tanyue job accepted ... qwen_thinking=False ... cosyvoice_model=cosyvoice-v3.5-p
 Aliyun STT stream connected
 ```
 
-Agent 会把 `character/motions/manifest.json` 中的动作说明加入提示词。Qwen 每次回复会生成 `reply` 和 `motion`，Agent 会在朗读 `reply` 的同时通过 `TANYUE_CHARACTER_BRIDGE_URL` 发送 `motion` 给角色页面。
+Agent 会把 `character/motions/manifest.json` 中的动作说明加入提示词。Qwen 每次回复会生成 `reply`、`motion` 和 `expression`，Agent 会在朗读 `reply` 的同时通过 `TANYUE_CHARACTER_BRIDGE_URL` 发送动作和表情给角色页面。TTS 流式音频每个 chunk 会被计算 RMS 音量包络，并以节流方式发送 `setLipSyncLevel`，驱动 VRM 的 `aa/oh` 嘴型；朗读结束只把口型归零，不会强制打断尚未播完的动作。
+
+可调参数：
+
+```bash
+TANYUE_CHARACTER_LIP_SYNC_ENABLED=1
+TANYUE_CHARACTER_LIP_SYNC_INTERVAL=0.08
+TANYUE_CHARACTER_LIP_SYNC_GAIN=7.0
+TANYUE_CHARACTER_LIP_SYNC_NOISE_FLOOR=0.01
+```
 
 ### 4. 启动语音 Web 页面
 

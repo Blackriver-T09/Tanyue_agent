@@ -309,9 +309,34 @@ avatar.play_audio_url("/voice/output/tender.wav")
 avatar.set_lip_sync_level(0.62)
 ```
 
-如果音频是在 Python 或系统播放器里播放，浏览器无法直接分析那段声音。此时推荐在 TTS chunk 播放时计算 RMS 音量，然后持续调用 `set_lip_sync_level()`。
+如果音频是在 Python 或系统播放器里播放，浏览器无法直接分析那段声音。当前实时语音 Agent 已经在 `voice/scripts/livekit_voice_agent.py` 中实现了这个流程：每个 CosyVoice PCM frame 会计算 RMS 音量，按 `TANYUE_CHARACTER_LIP_SYNC_INTERVAL` 节流发送 `set_lip_sync_level()`，朗读结束后发送 `0.0` 让角色闭嘴。
+
+可调参数：
+
+```bash
+TANYUE_CHARACTER_LIP_SYNC_ENABLED=1
+TANYUE_CHARACTER_LIP_SYNC_INTERVAL=0.08
+TANYUE_CHARACTER_LIP_SYNC_GAIN=7.0
+TANYUE_CHARACTER_LIP_SYNC_NOISE_FLOOR=0.01
+```
 
 当前口型是音量级张合，主要驱动 VRM 的 `aa` 和 `oh`。如果需要更精确的音素级口型，后续应接入 TTS 的 phoneme / viseme 时间戳，映射到 VRM 的 `aa / ih / ou / ee / oh`。
+
+## 表情控制
+
+当前实时语音 Agent 会要求 Qwen 在每次回复中同时输出：
+
+```json
+{"reply":"要朗读的话","motion":"动作id","expression":"表情id"}
+```
+
+支持的表情 id：
+
+```text
+neutral, happy, relaxed, sad, surprised, angry
+```
+
+`reply` 会被朗读，`motion` 和 `expression` 只用于控制角色，不能读出来。表情会在说话开始前设置；说话结束后恢复到 `relaxed`，但不会强制中断还没播完的动作。
 
 ## Agent 状态映射建议
 
@@ -319,7 +344,7 @@ avatar.set_lip_sync_level(0.62)
 
 - `listening`：`setPose("listening")`，`setExpression("relaxed")`
 - `thinking`：`setPose("thinking")`，降低 `energy`
-- `speaking`：`setExpression("happy")` 或 `relaxed`，TTS chunk 持续调用 `set_lip_sync_level`
+- `speaking`：由 Qwen 选择 `expression`，TTS chunk 持续调用 `set_lip_sync_level`
 - `greeting`：`play_motion("waving")`
 - `excited`：`play_motion("excited")` 或提高 `energy`
 - `shy`：`setPose("shy")`，`setExpression("happy")`
@@ -511,4 +536,31 @@ Supported modes:
 
 If Python or a system player plays the TTS audio, the browser cannot analyze that audio directly. In that case, compute RMS per audio chunk in the Agent/TTS layer and send it to `set_lip_sync_level()`.
 
+The realtime voice Agent now does this automatically in `voice/scripts/livekit_voice_agent.py`: each CosyVoice PCM frame is converted to an RMS amplitude envelope, throttled by `TANYUE_CHARACTER_LIP_SYNC_INTERVAL`, and sent to the character bridge as `setLipSyncLevel`. When speech ends, the Agent sends `0.0` so the mouth closes without interrupting the active body motion.
+
+Tuning knobs:
+
+```bash
+TANYUE_CHARACTER_LIP_SYNC_ENABLED=1
+TANYUE_CHARACTER_LIP_SYNC_INTERVAL=0.08
+TANYUE_CHARACTER_LIP_SYNC_GAIN=7.0
+TANYUE_CHARACTER_LIP_SYNC_NOISE_FLOOR=0.01
+```
+
 The current implementation is amplitude-based and drives `aa` and `oh`. For phoneme-level lip sync, connect TTS phoneme/viseme timings later and map them to VRM `aa / ih / ou / ee / oh`.
+
+## Expression Control
+
+The realtime voice Agent asks Qwen to return:
+
+```json
+{"reply":"spoken text","motion":"motion_id","expression":"expression_id"}
+```
+
+Supported expression ids:
+
+```text
+neutral, happy, relaxed, sad, surprised, angry
+```
+
+Only `reply` is spoken. `motion` and `expression` are control signals for the avatar. The expression is applied before speech starts; after speech ends the face relaxes, but the current body motion is not force-stopped.

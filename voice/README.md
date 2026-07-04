@@ -67,6 +67,10 @@ cp voice/.env.livekit.example voice/.env
 - `TANYUE_COSYVOICE_CLONE_CACHE=voice/.cosyvoice_voice_id`
 - `TANYUE_CHARACTER_ENABLED=1`
 - `TANYUE_CHARACTER_BRIDGE_URL=http://127.0.0.1:8893`
+- `TANYUE_CHARACTER_LIP_SYNC_ENABLED=1`
+- `TANYUE_CHARACTER_LIP_SYNC_INTERVAL=0.08`
+- `TANYUE_CHARACTER_LIP_SYNC_GAIN=7.0`
+- `TANYUE_CHARACTER_LIP_SYNC_NOISE_FLOOR=0.01`
 
 `voice/.env` 和项目根目录 `.env` 都会被自动读取；真实密钥已被 `.gitignore` 忽略。
 
@@ -139,7 +143,7 @@ python tanyue_agent.py web
 
 Agent 名称默认是 `tanyue`，可通过 `TANYUE_LIVEKIT_AGENT_NAME` 修改。
 
-统一 Web 页面内嵌数字人角色，右侧 Debug 面板可以折叠，展开后可以看到房间、转录、dispatch 和日志。如果 `character_bridge.py` 已启动，语音 Agent 会读取 `character/motions/manifest.json`，要求 Qwen 在每次回复中选择一个 `motion`。Agent 会解析这个动作指令，朗读 `reply` 的同时把动作发给角色 bridge；朗读结束后角色会回到 `angry` 待机动作。
+统一 Web 页面内嵌数字人角色，右侧 Debug 面板可以折叠，展开后可以看到房间、转录、dispatch 和日志。如果 `character_bridge.py` 已启动，语音 Agent 会读取 `character/motions/manifest.json`，要求 Qwen 在每次回复中选择 `motion` 和 `expression`。Agent 会解析动作和表情指令，朗读 `reply` 的同时把动作、表情发给角色 bridge；TTS 流式音频会被计算 RMS 音量包络，并实时发送 `setLipSyncLevel` 驱动嘴型。朗读结束后只把嘴型归零，不会强制打断正在播放的动作，动作播完后由角色页面回到 `angry` 待机。
 
 ## 4. 声音复刻
 
