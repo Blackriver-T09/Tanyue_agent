@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tanyue Motion Generator</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./src/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://esm.sh/three@0.180.0",
+          "three/addons/": "https://esm.sh/three@0.180.0/examples/jsm/",
+          "@pixiv/three-vrm": "https://esm.sh/@pixiv/three-vrm@3.5.4?external=three"
+        }
+      }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
+    <script src="https://unpkg.com/kalidokit@1.1.5/dist/kalidokit.umd.js"></script>
+  </head>
+  <body>
+    <main class="app">
+      <section class="stage" aria-label="Motion capture comparison">
+        <div id="countdownOverlay" class="countdown-overlay" hidden></div>
+        <div class="compare-grid">
+          <div class="preview-pane">
+            <div class="pane-title">VRM realtime skeleton</div>
+            <canvas id="vrmCanvas"></canvas>
+            <canvas id="vrmSkeletonCanvas"></canvas>
+            <div class="status" id="status">Loading VRM...</div>
+          </div>
+          <div class="preview-pane camera-pane">
+            <div class="pane-title">Camera detected skeleton</div>
+            <video id="inputVideo" playsinline muted></video>
+            <canvas id="overlayCanvas"></canvas>
+            <div class="status secondary" id="trackingStatus">Camera idle</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Motion capture controls">
+        <header>
+          <h1>Motion Generator</h1>
+          <p>Camera driven VRM upper-body and hand pose capture</p>
+        </header>
+
+        <section class="section">
+          <div class="section-title">Camera</div>
+          <div class="buttons">
+            <button id="startCamera" class="primary" type="button">Start Camera</button>
+            <button id="stopCamera" type="button" disabled>Stop</button>
+          </div>
+          <div class="meter"><div id="trackingMeter"></div></div>
+          <div class="hint">Left pane shows the retargeted VRM skeleton; right pane shows MediaPipe landmarks.</div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">Retarget</div>
+          <label>Solver
+            <select id="retargetSolver">
+              <option value="kalidokit" selected>Kalidokit</option>
+              <option value="vector">Vector fallback</option>
+            </select>
+          </label>
+          <label><input id="showVrmSkeleton" type="checkbox" checked /> Show VRM skeleton</label>
+          <label><input id="mirrorInput" type="checkbox" checked /> Mirror camera</label>
+          <label><input id="driveFullBody" type="checkbox" /> Drive legs</label>
+          <label><input id="driveHands" type="checkbox" checked /> Drive fingers</label>
+          <label><input id="driveFace" type="checkbox" checked /> Drive face</label>
+          <label>Smoothing <input id="smoothing" type="range" min="0.05" max="0.8" step="0.01" value="0.35" /></label>
+          <label>Arm gain <input id="armGain" type="range" min="0.55" max="1.45" step="0.01" value="1" /></label>
+          <label>Torso gain <input id="torsoGain" type="range" min="0" max="1.4" step="0.01" value="0.7" /></label>
+          <button id="resetPose" type="button">Reset VRM Pose</button>
+        </section>
+
+        <section class="section">
+          <div class="section-title">Recorder</div>
+          <label>Seconds <input id="recordDuration" type="number" min="1" max="120" step="1" value="5" /></label>
+          <div class="buttons">
+            <button id="startRecord" type="button">Record</button>
+            <button id="stopRecord" type="button" disabled>Stop Record</button>
+          </div>
+          <button id="downloadRecord" type="button" disabled>Download Capture JSON</button>
+          <div class="hint" id="recordStatus">No capture yet</div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">Output</div>
+          <p class="hint">
+            Record exports a simplified animated Humanoid FBX plus the raw landmark JSON for debugging.
+          </p>
+        </section>
+      </aside>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

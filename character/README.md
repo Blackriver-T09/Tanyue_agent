@@ -97,6 +97,23 @@ python3 character/scripts/agent_character_demo.py
 
 它会让角色进入开心状态、播放挥手动作、模拟一次口型电平，然后回到 listening 状态。
 
+## Motion Generator
+
+如果要用摄像头实时捕捉人体上半身/手部姿态并驱动 VRM，可以使用独立工具：
+
+```bash
+cd /Users/heihe/Desktop/Project/Tanyue
+python3 -m http.server 8892 -d character
+```
+
+打开：
+
+```text
+http://127.0.0.1:8892/motion_generator/
+```
+
+这个页面不连接 Agent。它使用 MediaPipe Holistic 捕捉 pose + hand landmarks，实时驱动 VRM 的头部、胸部、手臂、手腕和近似手指，并可下载 capture JSON。详细说明见 `character/motion_generator/README.md`。
+
 也可以直接用 curl：
 
 ```bash
@@ -309,15 +326,17 @@ avatar.play_audio_url("/voice/output/tender.wav")
 avatar.set_lip_sync_level(0.62)
 ```
 
-如果音频是在 Python 或系统播放器里播放，浏览器无法直接分析那段声音。当前实时语音 Agent 已经在 `voice/scripts/livekit_voice_agent.py` 中实现了这个流程：每个 CosyVoice PCM frame 会计算 RMS 音量，按 `TANYUE_CHARACTER_LIP_SYNC_INTERVAL` 节流发送 `set_lip_sync_level()`，朗读结束后发送 `0.0` 让角色闭嘴。
+如果音频是在 Python 或系统播放器里播放，浏览器无法直接分析那段声音。`voice/scripts/livekit_voice_agent.py` 保留了这个流程，但当前默认关闭：`TANYUE_CHARACTER_LIP_SYNC_ENABLED=0`。如果以后重新打开，每个 CosyVoice PCM frame 会计算 RMS 音量，按 `TANYUE_CHARACTER_LIP_SYNC_INTERVAL` 节流发送 `set_lip_sync_level()`，朗读结束后发送 `0.0` 让角色闭嘴。
 
 可调参数：
 
 ```bash
-TANYUE_CHARACTER_LIP_SYNC_ENABLED=1
+TANYUE_CHARACTER_LIP_SYNC_ENABLED=0
 TANYUE_CHARACTER_LIP_SYNC_INTERVAL=0.08
 TANYUE_CHARACTER_LIP_SYNC_GAIN=7.0
 TANYUE_CHARACTER_LIP_SYNC_NOISE_FLOOR=0.01
+TANYUE_CHARACTER_EXPRESSION_TAIL_SECONDS=0.9
+TANYUE_CHARACTER_EXPRESSION_MAX_HOLD_SECONDS=12.0
 ```
 
 当前口型是音量级张合，主要驱动 VRM 的 `aa` 和 `oh`。如果需要更精确的音素级口型，后续应接入 TTS 的 phoneme / viseme 时间戳，映射到 VRM 的 `aa / ih / ou / ee / oh`。
@@ -330,13 +349,19 @@ TANYUE_CHARACTER_LIP_SYNC_NOISE_FLOOR=0.01
 {"reply":"要朗读的话","motion":"动作id","expression":"表情id"}
 ```
 
-支持的表情 id：
+支持的表情 id 默认从当前 VRM 模型的 preset expression 中读取。当前 `LiuRuYan.vrm` 包含：
 
 ```text
 neutral, happy, relaxed, sad, surprised, angry
 ```
 
-`reply` 会被朗读，`motion` 和 `expression` 只用于控制角色，不能读出来。表情会在说话开始前设置；说话结束后恢复到 `relaxed`，但不会强制中断还没播完的动作。
+也可以用环境变量手动覆盖：
+
+```bash
+TANYUE_CHARACTER_EXPRESSIONS=happy,angry,sad,relaxed,surprised,neutral
+```
+
+`reply` 会被朗读，`motion` 和 `expression` 只用于控制角色，不能读出来。表情会在说话开始前以 `1.0` 强度设置，并根据已输出音频帧时长估算播放结束时间；正常说完后额外保留 `TANYUE_CHARACTER_EXPRESSION_TAIL_SECONDS`，再恢复到 `relaxed`。如果用户打断，表情会立即清理，避免旧表情拖到下一轮。
 
 ## Agent 状态映射建议
 
@@ -344,7 +369,7 @@ neutral, happy, relaxed, sad, surprised, angry
 
 - `listening`：`setPose("listening")`，`setExpression("relaxed")`
 - `thinking`：`setPose("thinking")`，降低 `energy`
-- `speaking`：由 Qwen 选择 `expression`，TTS chunk 持续调用 `set_lip_sync_level`
+- `speaking`：由 Qwen 选择 VRM preset `expression`，默认不发送音量口型
 - `greeting`：`play_motion("waving")`
 - `excited`：`play_motion("excited")` 或提高 `energy`
 - `shy`：`setPose("shy")`，`setExpression("happy")`
@@ -536,15 +561,17 @@ Supported modes:
 
 If Python or a system player plays the TTS audio, the browser cannot analyze that audio directly. In that case, compute RMS per audio chunk in the Agent/TTS layer and send it to `set_lip_sync_level()`.
 
-The realtime voice Agent now does this automatically in `voice/scripts/livekit_voice_agent.py`: each CosyVoice PCM frame is converted to an RMS amplitude envelope, throttled by `TANYUE_CHARACTER_LIP_SYNC_INTERVAL`, and sent to the character bridge as `setLipSyncLevel`. When speech ends, the Agent sends `0.0` so the mouth closes without interrupting the active body motion.
+The realtime voice Agent keeps this path in `voice/scripts/livekit_voice_agent.py`, but it is currently disabled by default: `TANYUE_CHARACTER_LIP_SYNC_ENABLED=0`. If re-enabled, each CosyVoice PCM frame is converted to an RMS amplitude envelope, throttled by `TANYUE_CHARACTER_LIP_SYNC_INTERVAL`, and sent to the character bridge as `setLipSyncLevel`.
 
 Tuning knobs:
 
 ```bash
-TANYUE_CHARACTER_LIP_SYNC_ENABLED=1
+TANYUE_CHARACTER_LIP_SYNC_ENABLED=0
 TANYUE_CHARACTER_LIP_SYNC_INTERVAL=0.08
 TANYUE_CHARACTER_LIP_SYNC_GAIN=7.0
 TANYUE_CHARACTER_LIP_SYNC_NOISE_FLOOR=0.01
+TANYUE_CHARACTER_EXPRESSION_TAIL_SECONDS=0.9
+TANYUE_CHARACTER_EXPRESSION_MAX_HOLD_SECONDS=12.0
 ```
 
 The current implementation is amplitude-based and drives `aa` and `oh`. For phoneme-level lip sync, connect TTS phoneme/viseme timings later and map them to VRM `aa / ih / ou / ee / oh`.
@@ -557,10 +584,16 @@ The realtime voice Agent asks Qwen to return:
 {"reply":"spoken text","motion":"motion_id","expression":"expression_id"}
 ```
 
-Supported expression ids:
+Expression ids are read from the current VRM model preset expressions by default. The current `LiuRuYan.vrm` includes:
 
 ```text
 neutral, happy, relaxed, sad, surprised, angry
 ```
 
-Only `reply` is spoken. `motion` and `expression` are control signals for the avatar. The expression is applied before speech starts; after speech ends the face relaxes, but the current body motion is not force-stopped.
+You can override the list manually:
+
+```bash
+TANYUE_CHARACTER_EXPRESSIONS=happy,angry,sad,relaxed,surprised,neutral
+```
+
+Only `reply` is spoken. `motion` and `expression` are control signals for the avatar. The expression is applied at intensity `1.0` before speech starts. The Agent estimates playout duration from emitted audio frames, keeps the expression for `TANYUE_CHARACTER_EXPRESSION_TAIL_SECONDS` after that point, then relaxes without force-stopping the current body motion. If speech is interrupted, the face resets immediately.

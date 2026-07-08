@@ -67,7 +67,10 @@ cp voice/.env.livekit.example voice/.env
 - `TANYUE_COSYVOICE_CLONE_CACHE=voice/.cosyvoice_voice_id`
 - `TANYUE_CHARACTER_ENABLED=1`
 - `TANYUE_CHARACTER_BRIDGE_URL=http://127.0.0.1:8893`
-- `TANYUE_CHARACTER_LIP_SYNC_ENABLED=1`
+- `TANYUE_CHARACTER_EXPRESSIONS=`，留空时从当前 VRM 模型读取 preset expression
+- `TANYUE_CHARACTER_EXPRESSION_TAIL_SECONDS=0.9`，估算音频播放结束后额外保留表情
+- `TANYUE_CHARACTER_EXPRESSION_MAX_HOLD_SECONDS=12.0`
+- `TANYUE_CHARACTER_LIP_SYNC_ENABLED=0`，当前默认不使用音量口型
 - `TANYUE_CHARACTER_LIP_SYNC_INTERVAL=0.08`
 - `TANYUE_CHARACTER_LIP_SYNC_GAIN=7.0`
 - `TANYUE_CHARACTER_LIP_SYNC_NOISE_FLOOR=0.01`
@@ -143,7 +146,23 @@ python tanyue_agent.py web
 
 Agent 名称默认是 `tanyue`，可通过 `TANYUE_LIVEKIT_AGENT_NAME` 修改。
 
-统一 Web 页面内嵌数字人角色，右侧 Debug 面板可以折叠，展开后可以看到房间、转录、dispatch 和日志。如果 `character_bridge.py` 已启动，语音 Agent 会读取 `character/motions/manifest.json`，要求 Qwen 在每次回复中选择 `motion` 和 `expression`。Agent 会解析动作和表情指令，朗读 `reply` 的同时把动作、表情发给角色 bridge；TTS 流式音频会被计算 RMS 音量包络，并实时发送 `setLipSyncLevel` 驱动嘴型。朗读结束后只把嘴型归零，不会强制打断正在播放的动作，动作播完后由角色页面回到 `angry` 待机。
+统一 Web 页面内嵌数字人角色，右侧 Debug 面板可以折叠，展开后可以看到房间、转录、dispatch 和日志。如果 `character_bridge.py` 已启动，语音 Agent 会读取 `character/motions/manifest.json` 和当前 VRM 模型的 preset expression，要求 Qwen 在每次回复中选择 `motion` 和 `expression`。Agent 会解析动作和表情指令，朗读 `reply` 的同时把动作、表情发给角色 bridge；表情强度默认使用 `1.0`，并根据已输出音频帧时长估算播放结束时间，额外保留 `TANYUE_CHARACTER_EXPRESSION_TAIL_SECONDS` 后回到 `relaxed`。当前默认不发送音量口型；如果以后重新启用 `TANYUE_CHARACTER_LIP_SYNC_ENABLED=1`，TTS 流式音频会被计算 RMS 音量包络并发送 `setLipSyncLevel`。
+
+### 三幕剧情 Scene
+
+Web 面板的 `Scene` 选择会写入 Agent dispatch metadata：
+
+```json
+{"scene":"humiliation"}
+```
+
+可选值：
+
+- `humiliation`：第一幕羞辱期，固定开场白和轻蔑身份贬低。
+- `reversal`：第二幕反转期，固定第一反应和破碎惊恐。
+- `pleading`：第三幕求饶期，固定第一句、夸张求饶和第一幕台词回收。
+
+切换 `Scene` 时，前端会断开当前房间、清空日志、生成新的 room 名称并重新 dispatch Agent，从而重置 LiveKit Agent 的对话上下文。
 
 ## 4. 声音复刻
 

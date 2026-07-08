@@ -30,6 +30,7 @@ venv/
 
 # Nested vendored repositories should stay as plain source trees in this repo.
 **/.git/
+character/motion_generator/vendor/
 
 # Model weights and generated assets
 **/weights/

@@ -156,7 +156,8 @@
         font-size: 13px;
         font-weight: 650;
       }
-      input {
+      input,
+      select {
         width: 100%;
         height: 38px;
         padding: 0 10px;
@@ -352,6 +353,14 @@
               <label for="name">Name</label>
               <input id="name" value="user" />
             </div>
+            <div class="field">
+              <label for="scene">Scene</label>
+              <select id="scene">
+                <option value="humiliation">第一幕：羞辱期</option>
+                <option value="reversal">第二幕：反转期</option>
+                <option value="pleading">第三幕：求饶期</option>
+              </select>
+            </div>
             <div class="buttons">
               <button id="connect" class="primary">Connect</button>
               <button id="disconnect" disabled>Disconnect</button>
@@ -392,6 +401,7 @@
       const audioEl = document.querySelector("#remoteAudio");
       const roomInput = document.querySelector("#room");
       const nameInput = document.querySelector("#name");
+      const sceneInput = document.querySelector("#scene");
       const callStateTitle = document.querySelector("#callStateTitle");
       const callStateText = document.querySelector("#callStateText");
       const micLevelEl = document.querySelector("#micLevel");
@@ -406,6 +416,13 @@
       let micSafetyResumeTimer = null;
       let micPausedByAssistant = false;
       let lastStatusLine = "";
+      let baseRoomName = roomInput.value.trim() || "tanyue-room";
+
+      const sceneLabels = {
+        humiliation: "第一幕：羞辱期",
+        reversal: "第二幕：反转期",
+        pleading: "第三幕：求饶期"
+      };
 
       function setStatus(text, className = "") {
         statusEl.textContent = text;
@@ -502,15 +519,27 @@
         log(`${isUser ? "你" : name}${final ? "" : " ..."}\n${text}`, kind);
       }
 
-      async function dispatchAgent(roomName) {
-        const res = await fetch(`/api/dispatch-agent?room=${encodeURIComponent(roomName)}`, {
+      function sceneRoomName(scene) {
+        const safeBase = baseRoomName || "tanyue-room";
+        return `${safeBase}-${scene}-${Date.now().toString(36)}`;
+      }
+
+      function resetSessionLog() {
+        logEl.textContent = "";
+        lastStatusLine = "";
+        log(`ready · ${sceneLabels[sceneInput.value] || sceneInput.value}`);
+      }
+
+      async function dispatchAgent(roomName, scene) {
+        const params = new URLSearchParams({ room: roomName, scene });
+        const res = await fetch(`/api/dispatch-agent?${params}`, {
           method: "POST"
         });
         if (!res.ok) {
           throw new Error(`agent dispatch failed: ${await res.text()}`);
         }
         const data = await res.json();
-        log(`agent ${data.status}: ${data.agent_name} (${data.dispatch_id || "no id"})`);
+        log(`agent ${data.status}: ${data.agent_name} (${data.dispatch_id || "no id"}) · ${sceneLabels[data.scene] || data.scene}`);
       }
 
       async function checkLiveKitStatus(roomName, verbose = false) {
@@ -523,7 +552,16 @@
         const dispatches = status.dispatches || [];
         const identities = participants.map((item) => item.identity).filter(Boolean);
         const hasAgent = identities.some((id) => id !== room?.localParticipant?.identity);
-        const dispatchLabel = dispatches.map((item) => `${item.agent_name}:${item.state}`).join(", ") || "none";
+        const dispatchLabel = dispatches.map((item) => {
+          let scene = "";
+          try {
+            const metadata = item.metadata ? JSON.parse(item.metadata) : {};
+            scene = metadata.scene ? `:${metadata.scene}` : "";
+          } catch {
+            scene = "";
+          }
+          return `${item.agent_name}${scene}:${item.state}`;
+        }).join(", ") || "none";
         const statusLine = `participants: ${identities.join(", ") || "none"}\ndispatches: ${dispatchLabel}`;
 
         if (hasAgent && !micPausedByAssistant) {
@@ -596,6 +634,7 @@
             name: nameInput.value.trim() || "user"
           });
           const roomName = params.get("room");
+          const scene = sceneInput.value || "humiliation";
           const res = await fetch(`/api/livekit-token?${params}`);
           if (!res.ok) {
             throw new Error(await res.text());
@@ -674,7 +713,7 @@
           const mediaStream = new MediaStream([micTrack.mediaStreamTrack]);
           startMicMeter(mediaStream);
           await setMicInputPaused(false);
-          await dispatchAgent(roomName);
+          await dispatchAgent(roomName, scene);
           await checkLiveKitStatus(roomName, true);
           startStatusPolling(roomName);
 
@@ -709,13 +748,25 @@
 
       connectBtn.addEventListener("click", connect);
       disconnectBtn.addEventListener("click", disconnect);
+      sceneInput.addEventListener("change", async () => {
+        baseRoomName = (roomInput.value || baseRoomName || "tanyue-room")
+          .replace(/-(humiliation|reversal|pleading)-[a-z0-9]+$/i, "")
+          .trim() || "tanyue-room";
+        roomInput.value = sceneRoomName(sceneInput.value);
+        resetSessionLog();
+        setCallState("Scene switched", `已切换到${sceneLabels[sceneInput.value]}，上下文已清空。`);
+        if (room) {
+          await disconnect();
+          await connect();
+        }
+      });
       toggleDebugBtn.addEventListener("click", () => {
         document.body.classList.toggle("debug-collapsed");
         const collapsed = document.body.classList.contains("debug-collapsed");
         toggleDebugBtn.textContent = collapsed ? "‹" : "›";
         toggleDebugBtn.title = collapsed ? "Open debug panel" : "Close debug panel";
       });
-      log("ready");
+      log(`ready · ${sceneLabels[sceneInput.value]}`);
     </script>
   </body>
 </html>

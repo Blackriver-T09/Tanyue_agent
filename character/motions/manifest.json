@@ -181,6 +181,16 @@
       "situations": ["greeting", "farewell", "welcome"],
       "mood": ["friendly", "happy", "warm"],
       "tags": ["greeting", "wave"]
+    },
+    {
+      "id": "cai_jiu_duo_lian",
+      "label": "cai_jiu_duo_lian",
+      "file": "cai_jiu_duo_lian.fbx",
+      "description": "双手成喇叭状放在脸两侧，表示“菜就多练”，适合嘲讽。",
+      "posture": "嘲讽对方弱小，双手成喇叭状放在脸两侧。",
+      "situations": ["greeting", "farewell", "welcome"],
+      "mood": ["friendly", "happy", "warm"],
+      "tags": ["greeting", "wave"]
     }
   ]
 }

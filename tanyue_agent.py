@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import os
 import sys
 import uuid
@@ -91,8 +92,14 @@ def create_app():
         return {"url": livekit_url, "token": token, "room": room, "identity": identity}
 
     @app.post("/api/dispatch-agent")
-    async def dispatch_agent(room: str = "tanyue-room", replace: bool = True) -> dict[str, str | list[str]]:
+    async def dispatch_agent(
+        room: str = "tanyue-room",
+        replace: bool = True,
+        scene: str = "humiliation",
+    ) -> dict[str, str | list[str]]:
         agent_name = os.environ.get("TANYUE_LIVEKIT_AGENT_NAME", "tanyue")
+        scene = scene if scene in {"humiliation", "reversal", "pleading"} else "humiliation"
+        metadata = json.dumps({"scene": scene}, ensure_ascii=False)
         livekit = LiveKitAPI(
             require_env("LIVEKIT_URL"),
             require_env("LIVEKIT_API_KEY"),
@@ -120,12 +127,14 @@ def create_app():
                 CreateAgentDispatchRequest(
                     agent_name=agent_name,
                     room=room,
+                    metadata=metadata,
                 )
             )
             return {
                 "status": "replaced" if deleted_dispatches else "dispatched",
                 "agent_name": agent_name,
                 "room": room,
+                "scene": scene,
                 "dispatch_id": dispatch.id,
                 "deleted_dispatches": deleted_dispatches,
             }
@@ -218,6 +227,7 @@ def summarize_dispatch(item) -> dict[str, str]:
             "state": summary,
             "job_id": job_id,
             "participant_identity": participant_identity,
+            "metadata": getattr(item, "metadata", ""),
         }
 
     created_at = getattr(item, "created_at", "")
@@ -228,6 +238,7 @@ def summarize_dispatch(item) -> dict[str, str]:
         "state": f"created_at={created_at}" if created_at else "created",
         "job_id": "",
         "participant_identity": "",
+        "metadata": getattr(item, "metadata", ""),
     }
 
 
@@ -252,9 +263,10 @@ def run_status(args: argparse.Namespace) -> None:
         print(f"participant_error={status['participant_error']}")
     print("dispatches:")
     for dispatch in status["dispatches"]:
+        metadata = f" metadata={dispatch['metadata']}" if dispatch.get("metadata") else ""
         print(
             f"  - id={dispatch['id']} agent={dispatch['agent_name']} "
-            f"room={dispatch['room']} state={dispatch['state']}"
+            f"room={dispatch['room']} state={dispatch['state']}{metadata}"
         )
     if not status["dispatches"]:
         print("  - none")

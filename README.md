@@ -153,16 +153,21 @@ Tanyue job accepted ... qwen_thinking=False ... cosyvoice_model=cosyvoice-v3.5-p
 Aliyun STT stream connected
 ```
 
-Agent 会把 `character/motions/manifest.json` 中的动作说明加入提示词。Qwen 每次回复会生成 `reply`、`motion` 和 `expression`，Agent 会在朗读 `reply` 的同时通过 `TANYUE_CHARACTER_BRIDGE_URL` 发送动作和表情给角色页面。TTS 流式音频每个 chunk 会被计算 RMS 音量包络，并以节流方式发送 `setLipSyncLevel`，驱动 VRM 的 `aa/oh` 嘴型；朗读结束只把口型归零，不会强制打断尚未播完的动作。
+Agent 会把 `character/motions/manifest.json` 中的动作说明加入提示词，并读取当前 VRM 模型中的预设表情。Qwen 每次回复会生成 `reply`、`motion` 和 `expression`，Agent 会在朗读 `reply` 的同时通过 `TANYUE_CHARACTER_BRIDGE_URL` 发送动作和表情给角色页面。表情强度默认使用 `1.0`，并保持到本轮语音播放结束；结束后回到 `relaxed`。随音量开合嘴巴现在默认关闭，后续需要时可以重新打开。
 
-可调参数：
+表情和口型相关参数：
 
 ```bash
-TANYUE_CHARACTER_LIP_SYNC_ENABLED=1
+TANYUE_CHARACTER_EXPRESSIONS=
+TANYUE_CHARACTER_EXPRESSION_TAIL_SECONDS=0.9
+TANYUE_CHARACTER_EXPRESSION_MAX_HOLD_SECONDS=12.0
+TANYUE_CHARACTER_LIP_SYNC_ENABLED=0
 TANYUE_CHARACTER_LIP_SYNC_INTERVAL=0.08
 TANYUE_CHARACTER_LIP_SYNC_GAIN=7.0
 TANYUE_CHARACTER_LIP_SYNC_NOISE_FLOOR=0.01
 ```
+
+`TANYUE_CHARACTER_EXPRESSIONS` 留空时会优先从 `character/models/LiuRuYan.vrm` 读取 VRM preset expression；如果换模型后想手动限制表情列表，可以设置成逗号分隔值，例如 `happy,angry,sad,relaxed,surprised,neutral`。`TANYUE_CHARACTER_EXPRESSION_TAIL_SECONDS` 会在估算出的音频播放结束后额外保留表情，避免 TTS 生成流先结束导致表情提前恢复。
 
 ### 4. 启动语音 Web 页面
 
@@ -185,6 +190,26 @@ http://127.0.0.1:8894
 统一页面左侧/中间是数字人舞台，右侧是可折叠 Debug 面板。点击面板顶部的 `›` 可以收起对话日志和连接控制，减少空间占用；需要看转录、dispatch、房间状态时再展开。
 
 同一个房间断开后再次 Connect 时，Web 服务会替换旧 dispatch 并创建新的 Agent job，避免复用已经关闭的旧工作流。
+
+### 三幕剧情模式
+
+Web 面板提供 `Scene` 选择：
+
+- `第一幕：羞辱期`：柳如烟保持恶毒女配姿态，核心是身份贬低、轻蔑、不屑。
+- `第二幕：反转期`：听到“三年之期已到，恭迎龙王回归”后的硬切惊恐和语无伦次。
+- `第三幕：求饶期`：确认龙王身份后的夸张求饶，并回收第一幕羞辱话术制造打脸回声。
+
+切换 `Scene` 时，前端会清空 Session log，生成新的 LiveKit room 名称并重新 dispatch Agent。这样做是为了清空上一幕聊天上下文，避免第一幕的强势语气残留到第二幕或第三幕。dispatch metadata 会包含：
+
+```json
+{"scene":"humiliation"}
+```
+
+可选值为 `humiliation`、`reversal`、`pleading`。命令行排查时可以运行：
+
+```bash
+python tanyue_agent.py status --room <当前页面里的Room>
+```
 
 ## 常用命令
 

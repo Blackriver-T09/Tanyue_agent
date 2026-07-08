@@ -31,6 +31,7 @@ const controlsState = {
   lipSyncSensitivity: 2.8,
   lipSyncSmoothing: 0.35,
   expression: 'neutral',
+  expressionIntensity: 1,
   pose: 'relaxed',
 };
 
@@ -237,28 +238,22 @@ function getBone(name) {
   return currentVrm?.humanoid?.getNormalizedBoneNode(name) ?? null;
 }
 
+function expressionNames() {
+  const manager = currentVrm?.expressionManager;
+  if (!manager) return ['neutral', 'happy', 'relaxed', 'sad', 'surprised', 'angry'];
+  return Object.keys(manager.expressionMap || {});
+}
+
 function setExpression(name, value) {
   const manager = currentVrm?.expressionManager;
-  if (!manager) return;
+  if (!manager || !name) return;
   if (manager.expressionMap[name]) manager.setValue(name, value);
 }
 
 function clearExpressions() {
   const manager = currentVrm?.expressionManager;
   if (!manager) return;
-  for (const name of [
-    'happy',
-    'angry',
-    'sad',
-    'relaxed',
-    'surprised',
-    'neutral',
-    'blink',
-    'blinkLeft',
-    'blinkRight',
-    'aa',
-    'oh',
-  ]) {
+  for (const name of expressionNames()) {
     if (manager.expressionMap[name]) manager.setValue(name, 0);
   }
 }
@@ -531,7 +526,7 @@ function getCapabilities() {
   return {
     poses: Object.keys(posePresets),
     motions: Object.keys(fbxMotions),
-    expressions: ['neutral', 'happy', 'relaxed', 'sad', 'surprised', 'angry'],
+    expressions: expressionNames(),
     stateKeys: Object.keys(controlsState),
     lipSync: {
       audioUrl: true,
@@ -728,7 +723,10 @@ async function applyAgentCommand(command = {}) {
       setCharacterState(command.payload || command.state || {});
       return { ok: true };
     case 'setExpression':
-      setCharacterState({ expression: command.expression || command.name || 'neutral' });
+      setCharacterState({
+        expression: command.expression || command.name || 'neutral',
+        expressionIntensity: command.value ?? command.intensity ?? 1,
+      });
       return { ok: true };
     case 'setPose':
       applyPosePreset(command.pose || command.name);
@@ -888,7 +886,7 @@ function applyFace(time) {
 
   clearExpressions();
   if (controlsState.expression !== 'neutral') {
-    setExpression(controlsState.expression, 0.85);
+    setExpression(controlsState.expression, clamp01(Number(controlsState.expressionIntensity) || 0));
   }
 
   if (controlsState.blink && time >= nextBlinkAt) {
