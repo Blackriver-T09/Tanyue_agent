@@ -36,6 +36,11 @@ character/motion_generator/vendor/
 **/weights/
 visual/vendor/OpenFace-3.0/
 robot_voice/references/unitree_sdk2/lib/
+robot_voice/references/unitree_sdk2/
+robot_voice/references/cyclonedds/
+character/models/
+character/motions/*.fbx
+character/motions/*.vrm
 *.pth
 *.pkl
 *.pt
