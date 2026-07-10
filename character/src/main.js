@@ -545,7 +545,7 @@ function applyPosePreset(name) {
   setCharacterState(preset);
 }
 
-function stopMotion() {
+function stopMotion({ resetPose = true } = {}) {
   resetFace();
   if (currentMotionAction) {
     currentMotionAction.fadeOut(0.2);
@@ -555,7 +555,9 @@ function stopMotion() {
     currentMixer.stopAllAction();
     currentMixer = null;
   }
-  currentVrm?.humanoid?.resetNormalizedPose();
+  if (resetPose) {
+    currentVrm?.humanoid?.resetNormalizedPose();
+  }
 }
 
 function playIdleMotion() {
@@ -566,7 +568,11 @@ function playIdleMotion() {
   controlsState.motionLoop = true;
   const loopToggle = document.querySelector('#motionLoop');
   if (loopToggle) loopToggle.checked = true;
-  playMotion(defaultIdleMotion);
+  stopMotion({ resetPose: false });
+  loadFbxMotion(defaultIdleMotion, { preservePose: true })
+    .catch((error) => {
+      console.error(`Could not play idle motion "${defaultIdleMotion}".`, error);
+    });
 }
 
 function normalizeMixamoBoneName(rawName) {
@@ -652,7 +658,7 @@ function retargetFbxClipToVrm(fbx, sourceClip) {
   return new THREE.AnimationClip(sourceClip.name || 'fbx-retargeted', sourceClip.duration, tracks);
 }
 
-function loadFbxMotion(name) {
+function loadFbxMotion(name, { preservePose = false } = {}) {
   if (!currentVrm) return Promise.reject(new Error('VRM is not ready'));
   const fileName = fbxMotions[name];
   if (!fileName) return Promise.reject(new Error(`No FBX motion registered for ${name}`));
@@ -665,7 +671,9 @@ function loadFbxMotion(name) {
     const clip = retargetFbxClipToVrm(fbx, sourceClip);
     if (!clip.tracks.length) throw new Error(`No retargetable tracks in ${fileName}`);
 
-    currentVrm.humanoid.resetNormalizedPose();
+    if (!preservePose) {
+      currentVrm.humanoid.resetNormalizedPose();
+    }
     currentMixer = new THREE.AnimationMixer(currentVrm.scene);
     currentMotionAction = currentMixer.clipAction(clip);
     currentMotionAction.reset();

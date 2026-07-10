@@ -1,0 +1,9 @@
+{
+  "use_live": false,
+  "enable_hands": true,
+  "hand_joint": "L10",
+  "can": "can0",
+  "modbus": "None",
+  "intensity": "low",
+  "repeat": 1
+}

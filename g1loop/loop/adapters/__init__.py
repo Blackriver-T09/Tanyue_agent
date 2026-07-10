@@ -1,0 +1,1 @@
+"""Hardware and fake adapters."""
