@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import socket
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -13,18 +14,56 @@ if str(ROOT) not in sys.path:
 
 from robot_voice.pcm_resampler import resample_s16le_mono_stream
 from robot_voice.remote_tts_client import RemoteTTSClient, RemoteTTSConfig, TTSRequest
-from robot_voice.unitree_g1_voice import UnitreeG1Voice
+from robot_voice.unitree_g1_voice import UnitreeG1Voice, apply_gain_s16le_stream
 
 
 VALID_STRENGTHS = {"light", "strong", "max"}
 VALID_MODES = {"auto", "cross_lingual", "instruct2"}
 
 
+def print_interfaces() -> None:
+    try:
+        result = subprocess.run(["ifconfig"], check=False, capture_output=True, text=True)
+    except OSError:
+        for _index, name in socket.if_nameindex():
+            print(name)
+        return
+
+    if result.returncode != 0 or not result.stdout:
+        for _index, name in socket.if_nameindex():
+            print(name)
+        return
+
+    current = None
+    blocks: dict[str, list[str]] = {}
+    for line in result.stdout.splitlines():
+        if line and not line.startswith(("\t", " ")) and ":" in line:
+            current = line.split(":", 1)[0]
+            blocks[current] = [line]
+        elif current:
+            blocks[current].append(line)
+
+    for _index, name in socket.if_nameindex():
+        lines = blocks.get(name, [])
+        status = "unknown"
+        inet_values = []
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("status:"):
+                status = stripped.split(":", 1)[1].strip()
+            elif stripped.startswith("inet "):
+                parts = stripped.split()
+                if len(parts) >= 2:
+                    inet_values.append(parts[1])
+        inet_text = ",".join(inet_values) if inet_values else "-"
+        print(f"{name:10s} status={status:8s} inet={inet_text}")
+
+
 def print_help() -> None:
     print(
         "Commands: /emotion TEXT | /strength light|strong|max | /speed 0.5-2.0 | "
         "/mode auto|cross_lingual|instruct2 | /volume 0-100 | /led R G B | "
-        "/builtin TEXT | /status | /help | empty line exits"
+        "/gain DB | /builtin TEXT | /status | /help | empty line exits"
     )
 
 
@@ -37,7 +76,10 @@ def stream_text_to_robot(
     mode: str,
     speed: float,
     app_name: str,
-    send_interval_ms: float,
+    send_interval_ms: float | None,
+    tail_wait_ms: float,
+    gain_db: float,
+    robot_chunk_bytes: int,
     verbose: bool,
 ) -> None:
     req = TTSRequest(
@@ -49,11 +91,14 @@ def stream_text_to_robot(
     )
     pcm24 = tts.stream_pcm(req)
     pcm16 = resample_s16le_mono_stream(pcm24, input_rate=24000, output_rate=16000, read_size=3200)
+    pcm16 = apply_gain_s16le_stream(pcm16, gain_db)
     robot.play_pcm16_16k_mono_stream(
         pcm16,
         app_name=app_name,
         stream_id=str(int(time.time() * 1000)),
         send_interval_ms=send_interval_ms,
+        tail_wait_ms=tail_wait_ms,
+        robot_chunk_bytes=robot_chunk_bytes,
         verbose=verbose,
     )
 
@@ -69,17 +114,25 @@ def main() -> int:
     parser.add_argument("--speed", type=float, default=1.0)
     parser.add_argument("--volume", type=int, help="Set robot volume on startup.")
     parser.add_argument("--app-name", default="tanyue")
-    parser.add_argument("--send-interval-ms", type=float, default=40.0)
+    parser.add_argument(
+        "--send-interval-ms",
+        type=float,
+        help="Delay after each robot chunk. Default follows chunk audio duration, like Unitree examples.",
+    )
+    parser.add_argument("--tail-wait-ms", type=float, default=1000.0)
+    parser.add_argument("--robot-chunk-bytes", type=int, default=96000, help="Bytes per PlayStream call. Unitree examples use 96000.")
+    parser.add_argument("--gain-db", type=float, default=0.0, help="PCM gain before sending to robot. Try 3-9 if robot is quiet.")
     parser.add_argument("--timeout", type=float, default=10.0)
     parser.add_argument("--use-env-proxy", action="store_true")
     parser.add_argument("--resolve-ip", default="183.131.59.150", help="Use empty string to disable direct-IP fallback.")
-    parser.add_argument("--list-interfaces", action="store_true", help="List local network interfaces and exit.")
+    parser.add_argument("--list-interfaces", action="store_true", help="List local network interfaces with status/IP and exit.")
+    parser.add_argument("--check", action="store_true", help="Connect to the robot, print the current volume, and exit.")
+    parser.add_argument("--builtin-text", help="Use the robot built-in TTS once and exit.")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
     if args.list_interfaces:
-        for _index, name in socket.if_nameindex():
-            print(name)
+        print_interfaces()
         return 0
 
     if not args.interface:
@@ -91,6 +144,14 @@ def main() -> int:
     if args.volume is not None:
         robot.set_volume(args.volume)
         print(f"[robot] volume set to {args.volume}")
+
+    if args.check:
+        print(f"[robot] connected. volume={robot.get_volume()}")
+        return 0
+
+    if args.builtin_text:
+        robot.say_builtin(args.builtin_text)
+        return 0
 
     tts = RemoteTTSClient(
         RemoteTTSConfig(
@@ -104,6 +165,7 @@ def main() -> int:
     emotion_strength = args.emotion_strength
     mode = args.mode
     speed = args.speed
+    gain_db = args.gain_db
 
     if args.text:
         stream_text_to_robot(
@@ -116,6 +178,9 @@ def main() -> int:
             speed,
             args.app_name,
             args.send_interval_ms,
+            args.tail_wait_ms,
+            args.gain_db,
+            args.robot_chunk_bytes,
             args.verbose,
         )
         return 0
@@ -163,6 +228,14 @@ def main() -> int:
             robot.set_volume(volume)
             print(f"volume={volume}")
             continue
+        if text.startswith("/gain "):
+            try:
+                gain_db = float(text[len("/gain ") :].strip())
+            except ValueError:
+                print("gain must be a number, for example: /gain 6")
+                continue
+            print(f"gain_db={gain_db}")
+            continue
         if text.startswith("/led "):
             parts = text[len("/led ") :].split()
             if len(parts) != 3:
@@ -174,7 +247,10 @@ def main() -> int:
             robot.say_builtin(text[len("/builtin ") :].strip())
             continue
         if text == "/status":
-            print(f"emotion={emotion or '(default)'} strength={emotion_strength} mode={mode} speed={speed}")
+            print(
+                f"emotion={emotion or '(default)'} strength={emotion_strength} "
+                f"mode={mode} speed={speed} gain_db={gain_db}"
+            )
             continue
         if text == "/help":
             print_help()
@@ -190,6 +266,9 @@ def main() -> int:
             speed,
             args.app_name,
             args.send_interval_ms,
+            args.tail_wait_ms,
+            gain_db,
+            args.robot_chunk_bytes,
             args.verbose,
         )
 

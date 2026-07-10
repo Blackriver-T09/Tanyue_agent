@@ -1,6 +1,6 @@
 # Tanyue Robot Voice
 
-宇树机器人发声装置开发目录。当前阶段先保存官方资料、SDK 源码和接口调研结论，后续在这里实现从 Tanyue 语音流到宇树 G1 扬声器的播放链路。
+宇树机器人发声装置开发目录。当前实现目标是：在终端输入一句话并按回车后，远程 TTS 生成音频流，脚本重采样后推送到宇树 G1 扬声器播放。
 
 ## Local References
 
@@ -52,11 +52,25 @@
 
 在连接 G1 的控制机上运行。`interface` 是连接机器人的网卡名，例如官方示例里的 `enp2s0`。
 
+当前 Mac 实测连接：
+
+- USB 有线网卡：`AX88179A`
+- 设备名：`en7`
+- 本机静态 IP：`192.168.123.222/24`
+- SDK 音频服务自检：`python robot_voice/stream_tts_to_robot.py en7 --check`
+
+如果插线后网卡拿到的是 `169.254.x.x`，需要按 Unitree 开发网段设置静态地址：
+
+```bash
+networksetup -setmanual AX88179A 192.168.123.222 255.255.255.0
+```
+
 ```bash
 cd /Users/heihe/Desktop/Project/Tanyue
 conda activate Tanyue
 python robot_voice/stream_tts_to_robot.py --list-interfaces
-python robot_voice/stream_tts_to_robot.py <interface> --volume 85
+python robot_voice/stream_tts_to_robot.py en7 --check
+python robot_voice/stream_tts_to_robot.py en7 --volume 100 --gain-db 6
 ```
 
 进入交互后：
@@ -68,9 +82,10 @@ python robot_voice/stream_tts_to_robot.py <interface> --volume 85
 单句测试后退出：
 
 ```bash
-python robot_voice/stream_tts_to_robot.py enp2s0 \
-  --text "你好，我是檀月。现在开始测试宇树机器人发声。" \
-  --volume 85
+python robot_voice/stream_tts_to_robot.py en7 \
+  --volume 100 \
+  --gain-db 6 \
+  --text "你好，我是檀月。现在开始测试宇树机器人发声。"
 ```
 
 注意：`enp2s0` 是 Linux 官方示例里的网卡名。Mac 上通常是 `en0`、`en4`、`en5`、`bridge0` 等，请使用 `--list-interfaces` 找到连接 G1 的实际网卡。
@@ -84,10 +99,41 @@ python robot_voice/stream_tts_to_robot.py enp2s0 \
 /mode auto|cross_lingual|instruct2
 /volume 0-100
 /led 255 80 120
+/gain 6
 /builtin 使用机器人内置 TTS 说这句话
 /status
 /help
 ```
+
+### Playback Completeness
+
+G1 的 `AudioClient.PlayStream` 对过小、过密的 PCM 包不稳定。实测 `3200 bytes`（约 100 ms 音频）连续发送时，机器人可能只播放前半句，例如只播到“这是什么情况”。
+
+当前默认策略改为贴近官方示例：
+
+- 重采样输出仍为 `16 kHz / mono / s16le`
+- 聚合后每次 `PlayStream` 默认发送 `96000 bytes`，即 3 秒音频
+- 每块发送后默认按该块音频时长节流
+- 全部发送后默认额外等待 `1000 ms` 再 `PlayStop`
+
+这会牺牲一点首包播放延迟，但能保证完整播放。已实测如下命令能完整播放：
+
+```bash
+python robot_voice/stream_tts_to_robot.py en7 \
+  --volume 100 \
+  --gain-db 6 \
+  --text "这是什么情况，现在应该可以完整播放。" \
+  --timeout 5 \
+  --verbose
+```
+
+如果后续想降低首句等待，可以尝试 1 秒块：
+
+```bash
+python robot_voice/stream_tts_to_robot.py en7 --volume 100 --gain-db 6 --robot-chunk-bytes 32000
+```
+
+但如果再次出现截断，恢复默认 `96000`。
 
 ## Runtime Requirements
 
@@ -142,8 +188,14 @@ G1 `AudioClient.PlayStream` 目标格式：
 16 kHz / mono / signed 16-bit little-endian PCM
 ```
 
-当前默认重采样后每次读取 `3200 bytes`，约等于 `100 ms` 音频；发送间隔默认 `40 ms`，可以通过参数调整：
+当前重采样后内部读取 `3200 bytes`，但发给机器人前会聚合为更大的播放块。默认每个机器人播放块为 `96000 bytes`，约等于 `3 s` 音频。可以通过参数调整：
 
 ```bash
-python robot_voice/stream_tts_to_robot.py enp2s0 --send-interval-ms 60
+python robot_voice/stream_tts_to_robot.py en7 --robot-chunk-bytes 32000
+```
+
+默认发送节奏跟随音频块时长。如果需要强制指定每块发送间隔：
+
+```bash
+python robot_voice/stream_tts_to_robot.py en7 --send-interval-ms 1000
 ```

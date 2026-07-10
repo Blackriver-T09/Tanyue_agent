@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 import platform
+import struct
 import sys
 import time
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Iterator
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -96,13 +97,16 @@ class UnitreeG1Voice:
         chunks: Iterable[bytes],
         app_name: str = "tanyue",
         stream_id: str | None = None,
-        send_interval_ms: float = 40.0,
+        send_interval_ms: float | None = None,
+        tail_wait_ms: float = 250.0,
+        robot_chunk_bytes: int = 96000,
         verbose: bool = False,
     ) -> None:
         stream_id = stream_id or str(int(time.time() * 1000))
         sent = 0
+        started_at = time.monotonic()
         try:
-            for index, chunk in enumerate(chunks):
+            for index, chunk in enumerate(coalesce_chunks(chunks, robot_chunk_bytes)):
                 if not chunk:
                     continue
                 code, _ = self.client.PlayStream(app_name, stream_id, chunk)
@@ -111,8 +115,23 @@ class UnitreeG1Voice:
                 sent += len(chunk)
                 if verbose:
                     print(f"[robot] chunk={index} bytes={len(chunk)} total={sent}", flush=True)
-                if send_interval_ms > 0:
-                    time.sleep(send_interval_ms / 1000.0)
+                if send_interval_ms is None:
+                    sleep_seconds = max(0.0, len(chunk) / 32000.0 - 0.05)
+                else:
+                    sleep_seconds = max(0.0, send_interval_ms / 1000.0)
+                if sleep_seconds > 0:
+                    time.sleep(sleep_seconds)
+            audio_duration = sent / 32000.0
+            elapsed = time.monotonic() - started_at
+            wait_seconds = max(tail_wait_ms / 1000.0, audio_duration - elapsed + tail_wait_ms / 1000.0)
+            if verbose:
+                print(
+                    f"[robot] sent_bytes={sent} audio_s={audio_duration:.3f} "
+                    f"elapsed_s={elapsed:.3f} tail_wait_s={wait_seconds:.3f}",
+                    flush=True,
+                )
+            if sent > 0 and wait_seconds > 0:
+                time.sleep(wait_seconds)
         finally:
             self.stop(app_name)
 
@@ -122,3 +141,55 @@ class UnitreeG1Voice:
 
 def clamp_u8(value: int) -> int:
     return max(0, min(255, int(value)))
+
+
+def coalesce_chunks(chunks: Iterable[bytes], target_bytes: int) -> Iterator[bytes]:
+    target_bytes = max(2, int(target_bytes))
+    if target_bytes % 2:
+        target_bytes -= 1
+
+    buffer = bytearray()
+    for chunk in chunks:
+        if not chunk:
+            continue
+        buffer.extend(chunk)
+        while len(buffer) >= target_bytes:
+            yield bytes(buffer[:target_bytes])
+            del buffer[:target_bytes]
+    if buffer:
+        if len(buffer) % 2:
+            buffer = buffer[:-1]
+        if buffer:
+            yield bytes(buffer)
+
+
+def apply_gain_s16le_stream(chunks: Iterable[bytes], gain_db: float) -> Iterator[bytes]:
+    if gain_db == 0:
+        yield from chunks
+        return
+
+    factor = 10 ** (gain_db / 20.0)
+    pending = b""
+    for chunk in chunks:
+        if not chunk:
+            continue
+        data = pending + chunk
+        if len(data) % 2:
+            pending = data[-1:]
+            data = data[:-1]
+        else:
+            pending = b""
+        if data:
+            yield _apply_gain_s16le(data, factor)
+    if pending:
+        yield pending
+
+
+def _apply_gain_s16le(data: bytes, factor: float) -> bytes:
+    out = bytearray(len(data))
+    for offset in range(0, len(data), 2):
+        sample = struct.unpack_from("<h", data, offset)[0]
+        amplified = int(sample * factor)
+        amplified = max(-32768, min(32767, amplified))
+        struct.pack_into("<h", out, offset, amplified)
+    return bytes(out)
