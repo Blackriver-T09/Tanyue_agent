@@ -1,0 +1,220 @@
+[
+  {
+    "id": "xinteng_giegie",
+    "name": "心疼 giegie / 绿茶委屈名场面",
+    "aliases": ["giegie", "心疼哥哥", "心疼 giegie", "绿茶", "哥哥"],
+    "symbols": ["棒棒糖", "夹子音", "委屈", "假哭", "装可怜"],
+    "contexts": ["争宠", "装可怜", "阴阳怪气", "恶毒女配", "短剧"],
+    "emotion_deltas": {
+      "fake_grievance": 0.72,
+      "jealousy": 0.28,
+      "mocking": 0.18,
+      "heart": -0.08
+    },
+    "actions": ["cover_face_then_turn_away", "slow_point_then_retreat"],
+    "lines": ["你怎么能这样对 giegie", "心疼 giegie"],
+    "explanation": "棒棒糖到 giegie 属于约定俗成的文化符号索引，不是语义相似。"
+  },
+  {
+    "id": "ikun_basketball",
+    "name": "只因 / 篮球 ikun 梗",
+    "aliases": ["只因", "鸡你太美", "蔡徐坤", "ikun", "坤"],
+    "symbols": ["篮球", "背带裤", "黑白背带裤", "中分", "唱跳"],
+    "contexts": ["舞台", "热梗互动", "抽象", "调侃"],
+    "emotion_deltas": {
+      "mocking": 0.76,
+      "playful": 0.34,
+      "heart": 0.08
+    },
+    "actions": ["basketball_feint", "rhythm_shake_then_pose"],
+    "lines": ["这个场景懂的都懂", "你干嘛"],
+    "explanation": "篮球、背带裤和中分共同触发的是网络文化符号链，而不是普通运动语义。"
+  },
+  {
+    "id": "ni_gan_ma",
+    "name": "你干嘛哎哟",
+    "aliases": ["你干嘛", "哎哟", "你干嘛哎哟"],
+    "symbols": ["突然质问", "夸张停顿", "被冒犯"],
+    "contexts": ["反应", "吐槽", "互动打断", "短剧"],
+    "emotion_deltas": {
+      "mocking": 0.48,
+      "fake_angry": 0.42,
+      "heart": 0.04
+    },
+    "actions": ["sharp_point_then_pause", "dramatic_stop"],
+    "lines": ["你干嘛哎哟", "你干嘛"],
+    "explanation": "该梗适合用作短促反应和舞台打断。"
+  },
+  {
+    "id": "dragon_king_reveal",
+    "name": "龙王归位 / 短剧反转",
+    "aliases": ["龙王", "歪嘴龙王", "龙王归位", "反转"],
+    "symbols": ["歪嘴", "身份揭晓", "全场震惊", "打脸"],
+    "contexts": ["短剧", "装逼", "复仇", "恶毒女配"],
+    "emotion_deltas": {
+      "dramatic": 0.66,
+      "mocking": 0.32,
+      "heart": 0.12
+    },
+    "actions": ["recoil_then_salute", "dramatic_retreat"],
+    "lines": ["原来你就是龙王", "是我有眼不识泰山"],
+    "explanation": "龙王语境用于快速建立短剧反转和夸张身份差。"
+  },
+  {
+    "id": "tui_tui_tui",
+    "name": "退退退 / 摆手驱离",
+    "aliases": ["退退退", "退！退！退！", "别过来", "离我远点"],
+    "symbols": ["双手拒绝", "后撤", "驱赶", "保持距离"],
+    "contexts": ["嫌弃", "拒绝", "恶毒女配", "短剧", "边界感"],
+    "emotion_deltas": {
+      "fake_angry": 0.62,
+      "jealousy": 0.18,
+      "mocking": 0.22,
+      "heart": -0.12
+    },
+    "actions": ["ward_off_push"],
+    "lines": ["退退退", "别过来"],
+    "explanation": "该梗适合机械臂做非接触式摆手驱离，观众能立刻读懂拒绝和嫌弃。"
+  },
+  {
+    "id": "listen_to_yourself",
+    "name": "你要不要听听你在说什么",
+    "aliases": ["你要不要听听你在说什么", "听听你在说什么", "你自己听听"],
+    "symbols": ["疑惑", "反问", "离谱发言", "问号"],
+    "contexts": ["吐槽", "反问", "短剧", "恶毒女配", "离谱"],
+    "emotion_deltas": {
+      "confusion": 0.72,
+      "mocking": 0.32,
+      "fake_angry": 0.2,
+      "heart": -0.04
+    },
+    "actions": ["confused_scan"],
+    "lines": ["你要不要听听你在说什么"],
+    "explanation": "这是强反问梗，适合用扫视、停顿和回指动作表现“你认真的吗”。"
+  },
+  {
+    "id": "zhijing_salute",
+    "name": "致敬",
+    "aliases": ["致敬", "respect", "respect！", "respect!"],
+    "symbols": ["敬礼", "庄重", "刷屏", "认可"],
+    "contexts": ["高光", "反转", "认真", "短剧", "观众互动"],
+    "emotion_deltas": {
+      "affection": 0.36,
+      "dramatic": 0.28,
+      "heart": 0.18
+    },
+    "actions": ["salute_hold"],
+    "lines": ["这一波必须致敬"],
+    "explanation": "适合在短剧反转或玩家完成名场面后，用机械臂定格致意。"
+  },
+  {
+    "id": "you_neng_zen",
+    "name": "如何呢，又能怎",
+    "aliases": ["如何呢，又能怎", "如何呢又能怎", "又能怎", "还能怎样"],
+    "symbols": ["摊手", "认命", "无奈", "摆烂式反问"],
+    "contexts": ["无奈", "自嘲", "短剧", "反转失败", "被拿捏"],
+    "emotion_deltas": {
+      "resigned": 0.72,
+      "mocking": 0.2,
+      "heart": -0.03
+    },
+    "actions": ["shrug_then_wave"],
+    "lines": ["如何呢，又能怎"],
+    "explanation": "这是无奈认输型梗，机械臂可用摊手和小幅挥手表现“算了”。"
+  },
+  {
+    "id": "sigua_soup",
+    "name": "喝碗丝瓜汤",
+    "aliases": ["丝瓜汤", "喝碗丝瓜汤", "来碗丝瓜汤"],
+    "symbols": ["冷静一下", "自我安慰", "降火", "疗愈"],
+    "contexts": ["破防", "安慰", "短剧", "自嘲", "缓和冲突"],
+    "emotion_deltas": {
+      "affection": 0.18,
+      "resigned": 0.26,
+      "heart": 0.08
+    },
+    "actions": ["calm_down_sip"],
+    "lines": ["喝碗丝瓜汤冷静一下"],
+    "explanation": "适合从夸张冲突切到自我安慰，让机械臂做端碗/下压平复动作。"
+  },
+  {
+    "id": "elegant_penguin",
+    "name": "高雅人士企鹅舞",
+    "aliases": ["高雅人士", "企鹅舞", "高雅人士企鹅舞"],
+    "symbols": ["优雅", "企鹅", "抽象舞步", "高雅"],
+    "contexts": ["舞台", "整活", "抽象", "短剧", "观众互动"],
+    "emotion_deltas": {
+      "playful": 0.72,
+      "mocking": 0.2,
+      "heart": 0.1
+    },
+    "actions": ["elegant_penguin_pose"],
+    "lines": ["高雅人士登场"],
+    "explanation": "抽象舞步类梗最适合机械臂做节奏摆动和定格，识别度高。"
+  },
+  {
+    "id": "crazy_thursday",
+    "name": "疯狂星期四 / V我50文学",
+    "aliases": ["疯狂星期四", "疯四文学", "肯德基疯狂星期四"],
+    "symbols": ["V我50", "星期四", "肯德基", "谁请我吃"],
+    "contexts": ["长故事反转", "心碎", "秦始皇", "悬念", "文案", "借钱"],
+    "emotion_deltas": {
+      "playful": 0.58,
+      "mocking": 0.2,
+      "heart": 0.08
+    },
+    "actions": ["voice_only_nod"],
+    "lines": ["今天疯狂星期四，V我50"],
+    "explanation": "星期四、肯德基和 V我50 是稳定的文化符号链；前文可以是任意悬念故事，结尾负责反转。",
+    "response_mode": "voice_only"
+  },
+  {
+    "id": "yaoyao_leading",
+    "name": "遥遥领先",
+    "aliases": ["遥遥领先", "遥遥领先于同行"],
+    "symbols": ["技术", "实力", "领先", "国产科技", "黑科技"],
+    "contexts": ["产品展示", "机器人", "发布会", "评委展示", "性能介绍"],
+    "emotion_deltas": {
+      "dramatic": 0.3,
+      "playful": 0.3,
+      "heart": 0.06
+    },
+    "actions": ["voice_only_nod"],
+    "lines": ["遥遥领先"],
+    "explanation": "技术、实力和发布会语境触发固定口播，动作保持克制，让语音承担笑点。",
+    "response_mode": "voice_only"
+  },
+  {
+    "id": "qin_shihuang_scam",
+    "name": "我是秦始皇",
+    "aliases": ["我是秦始皇", "秦始皇打钱", "封你做大将军"],
+    "symbols": ["打钱", "大将军", "复活兵马俑", "统一六国"],
+    "contexts": ["诈骗文学", "身份反转", "荒诞承诺", "短剧"],
+    "emotion_deltas": {
+      "dramatic": 0.52,
+      "mocking": 0.18,
+      "heart": 0.02
+    },
+    "actions": ["imperial_small_wave"],
+    "lines": ["我是秦始皇，打钱，封你做大将军"],
+    "explanation": "秦始皇、打钱和封官构成诈骗文学符号链；若同时出现星期四或 V我50，则周四文学优先。",
+    "response_mode": "small_motion"
+  },
+  {
+    "id": "cyber_trump",
+    "name": "赛博川王机器人开场",
+    "aliases": ["No one knows Robot better than me", "没人比我更懂机器人", "你懂不懂机器人", "你了解机器人吗", "赛博川普", "川王"],
+    "symbols": ["YMCA", "手风琴", "Trump voice", "川普语音包"],
+    "contexts": ["评委展示", "开场", "机器人表演", "舞台整活"],
+    "emotion_deltas": {
+      "playful": 0.7,
+      "dramatic": 0.48,
+      "heart": 0.1
+    },
+    "actions": ["accordion_gesture", "ymca_dance"],
+    "lines": ["No one knows Robot better than me"],
+    "explanation": "固定英文口播、手风琴手势和 YMCA 构成独立开场，不依赖龙王剧情。",
+    "response_mode": "show_opening",
+    "asset_id": "hyper3d/cyber_trump_gen2_color_v2/base_basic_pbr.glb"
+  }
+]

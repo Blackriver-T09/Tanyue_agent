@@ -703,20 +703,22 @@ function playMotion(name) {
     stopMotion();
     applyPosePreset('relaxed');
     setStatus('Motion stopped');
-    return;
+    return Promise.resolve({ ok: true, motion: name, status: 'stopped' });
   }
 
   stopMotion();
   if (fbxMotions[name]) {
-    loadFbxMotion(name)
+    return loadFbxMotion(name)
+      .then(() => ({ ok: true, motion: name, status: 'browser_applied' }))
       .catch((fbxError) => {
         console.error(`Could not play FBX motion "${name}".`, fbxError);
         setStatus(`Failed to play ${name}`);
+        throw fbxError;
       });
-    return;
   }
 
   setStatus(`Unknown motion: ${name}`);
+  return Promise.reject(new Error(`Unknown motion: ${name}`));
 }
 
 async function applyAgentCommand(command = {}) {
@@ -740,8 +742,7 @@ async function applyAgentCommand(command = {}) {
       applyPosePreset(command.pose || command.name);
       return { ok: true };
     case 'playMotion':
-      playMotion(command.motion || command.name);
-      return { ok: true };
+      return await playMotion(command.motion || command.name);
     case 'stopMotion':
       stopMotion();
       playIdleMotion();
@@ -813,15 +814,29 @@ function connectAgentBridge() {
     applyAgentCommand(command)
       .then((result) => {
         window.dispatchEvent(new CustomEvent('tanyue:command', { detail: { command, result } }));
+        return sendBridgeAck(url, event.lastEventId, { ok: true, status: 'browser_applied', result });
       })
       .catch((error) => {
         console.error('Agent command failed.', command, error);
         setStatus(`Agent command failed: ${command.type || command.action || 'unknown'}`);
+        sendBridgeAck(url, event.lastEventId, { ok: false, status: 'browser_failed', error: String(error) });
       });
   });
 
   bridgeEvents.addEventListener('error', () => {
     setBridgeStatus(`Agent bridge disconnected: ${url}`);
+  });
+}
+
+function sendBridgeAck(eventsUrl, eventId, ack) {
+  if (!eventId) return Promise.resolve();
+  const ackUrl = eventsUrl.replace(/\/events(?:\?.*)?$/, '/api/ack');
+  return fetch(ackUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event_id: Number(eventId), ack }),
+  }).then((response) => {
+    if (!response.ok) throw new Error(`Bridge ack failed: HTTP ${response.status}`);
   });
 }
 
