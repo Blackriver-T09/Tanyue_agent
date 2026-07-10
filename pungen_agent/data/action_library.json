@@ -1,0 +1,249 @@
+[
+  {
+    "action_id": "cover_face_then_turn_away",
+    "label": "捂脸转身",
+    "description": "用于装委屈、假哭、回避视线的短剧动作。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.7,
+    "duration_s": 2.6,
+    "parameters": {
+      "wrist_pitch": "down",
+      "elbow_arc": "small",
+      "end_pose": "turned_away"
+    }
+  },
+  {
+    "action_id": "slow_point_then_retreat",
+    "label": "慢指后退",
+    "description": "用于嫌弃、控诉、被冒犯后的戏剧性退让。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.65,
+    "duration_s": 2.4,
+    "parameters": {
+      "point_speed": "slow",
+      "retreat_distance": "short",
+      "end_pose": "guarded"
+    }
+  },
+  {
+    "action_id": "basketball_feint",
+    "label": "篮球假动作",
+    "description": "用于篮球、只因、舞台热梗触发后的节奏动作。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.75,
+    "duration_s": 2.2,
+    "parameters": {
+      "wrist_motion": "bounce",
+      "elbow_arc": "medium",
+      "end_pose": "ready"
+    }
+  },
+  {
+    "action_id": "rhythm_shake_then_pose",
+    "label": "节奏摇摆定格",
+    "description": "用于抽象调侃、舞台表演和观众可识别的节奏梗。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.85,
+    "duration_s": 2.8,
+    "parameters": {
+      "shake_count": 2,
+      "pose_hold_s": 0.6,
+      "end_pose": "stage_pose"
+    }
+  },
+  {
+    "action_id": "sharp_point_then_pause",
+    "label": "快速指人停顿",
+    "description": "用于你干嘛、被冒犯、短促打断式反应。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.6,
+    "duration_s": 1.8,
+    "parameters": {
+      "point_speed": "fast",
+      "pause_s": 0.5,
+      "end_pose": "questioning"
+    }
+  },
+  {
+    "action_id": "dramatic_stop",
+    "label": "戏剧急停",
+    "description": "用于突然质问、节奏打断、喜剧停顿。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.55,
+    "duration_s": 1.5,
+    "parameters": {
+      "stop_style": "hard",
+      "pause_s": 0.7,
+      "end_pose": "frozen"
+    }
+  },
+  {
+    "action_id": "recoil_then_salute",
+    "label": "后仰致意",
+    "description": "用于龙王身份揭晓后的震惊和服软。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.72,
+    "duration_s": 2.5,
+    "parameters": {
+      "recoil_distance": "short",
+      "salute_hold_s": 0.6,
+      "end_pose": "respect"
+    }
+  },
+  {
+    "action_id": "dramatic_retreat",
+    "label": "戏剧后撤",
+    "description": "用于恶毒女配破防、短剧反转和夸张撤退。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.78,
+    "duration_s": 2.4,
+    "parameters": {
+      "retreat_distance": "medium",
+      "wrist_pose": "defensive",
+      "end_pose": "retreated"
+    }
+  },
+  {
+    "action_id": "ward_off_push",
+    "label": "摆手驱离",
+    "description": "用于退退退、拒绝靠近、嫌弃式边界感表达。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.72,
+    "duration_s": 2.0,
+    "parameters": {
+      "push_count": 3,
+      "push_distance": "short",
+      "end_pose": "defensive"
+    }
+  },
+  {
+    "action_id": "confused_scan",
+    "label": "疑惑扫视",
+    "description": "用于你要不要听听你在说什么、离谱反问和问号脸。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.62,
+    "duration_s": 2.1,
+    "parameters": {
+      "scan_count": 2,
+      "pause_s": 0.4,
+      "end_pose": "questioning"
+    }
+  },
+  {
+    "action_id": "salute_hold",
+    "label": "定格致敬",
+    "description": "用于致敬、高光反转和认真认可。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.68,
+    "duration_s": 2.3,
+    "parameters": {
+      "raise_speed": "medium",
+      "hold_s": 0.8,
+      "end_pose": "respect"
+    }
+  },
+  {
+    "action_id": "shrug_then_wave",
+    "label": "摊手挥退",
+    "description": "用于如何呢又能怎、无奈、认命和自嘲。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.58,
+    "duration_s": 2.2,
+    "parameters": {
+      "shrug_arc": "small",
+      "wave_count": 1,
+      "end_pose": "resigned"
+    }
+  },
+  {
+    "action_id": "calm_down_sip",
+    "label": "端碗冷静",
+    "description": "用于丝瓜汤、自我安慰和冲突缓和。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.5,
+    "duration_s": 2.4,
+    "parameters": {
+      "cup_pose": "imaginary",
+      "lowering_motion": "slow",
+      "end_pose": "calm"
+    }
+  },
+  {
+    "action_id": "elegant_penguin_pose",
+    "label": "高雅企鹅定格",
+    "description": "用于高雅人士企鹅舞、抽象舞步和舞台整活。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.82,
+    "duration_s": 2.8,
+    "parameters": {
+      "sway_count": 2,
+      "pose_hold_s": 0.7,
+      "end_pose": "elegant_pose"
+    }
+  },
+  {
+    "action_id": "idle_listen",
+    "label": "安全待机倾听",
+    "description": "低置信度或无梗输入时使用，保持安全非接触。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.2,
+    "duration_s": 1.2,
+    "parameters": {
+      "motion": "minimal",
+      "end_pose": "neutral"
+    }
+  },
+  {
+    "action_id": "voice_only_nod",
+    "label": "口播轻点头",
+    "description": "语音承担主要笑点，机械臂只做低幅度确认动作。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.3,
+    "duration_s": 1.4,
+    "parameters": {
+      "motion": "minimal_nod",
+      "elbow_arc": "minimal",
+      "end_pose": "neutral"
+    }
+  },
+  {
+    "action_id": "imperial_small_wave",
+    "label": "帝王小挥手",
+    "description": "用于秦始皇诈骗文学，只做有限幅度的封赏式挥手。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.5,
+    "duration_s": 1.8,
+    "parameters": {
+      "wave_count": 1,
+      "elbow_arc": "small",
+      "end_pose": "imperial"
+    }
+  },
+  {
+    "action_id": "accordion_gesture",
+    "label": "手风琴开场手势",
+    "description": "赛博川王展示开场，双臂做受限幅度的手风琴节奏动作。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.78,
+    "duration_s": 3.2,
+    "parameters": {
+      "expand_count": 3,
+      "elbow_arc": "medium",
+      "tempo_bpm": 112,
+      "end_pose": "stage_pose"
+    }
+  },
+  {
+    "action_id": "ymca_dance",
+    "label": "YMCA 懂王舞蹈",
+    "description": "播放用户提供的 YMCA 音频时执行受限幅度的挥手转身舞台动作。",
+    "safety": "safe_no_contact",
+    "recommended_intensity": 0.72,
+    "duration_s": 8.0,
+    "parameters": {
+      "music_track": "ymca",
+      "motion": "wave_and_turn",
+      "end_pose": "stage_pose"
+    }
+  }
+]

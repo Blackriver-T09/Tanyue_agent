@@ -1,5 +1,47 @@
 # Tanyue Digital Human Agent
 
+## PunGen + Unitree Demo (Primary Competition Path)
+
+The competition-critical path is now the physical Unitree voice runtime. The
+web avatar is optional and is not required for the demo:
+
+```text
+Microphone -> Aliyun Fun-ASR -> PunGen fuzzy meme recognition
+           -> G1 voice pack / AudioClient -> G1 action
+```
+
+Canonical PunGen source: `pungen_agent/`. Physical robot programs: `robot/`.
+The outer Researchpipe `pungen_agent/__init__.py` is only a compatibility
+forwarder; there is no second implementation.
+
+Validated triggers:
+
+- `你懂不懂机器人` -> Trump voice line + `accordion_gesture`.
+- `播放 YMCA` -> configured YMCA WAV + `ymca_dance`.
+
+Start from this directory:
+
+```bash
+export DASHSCOPE_API_KEY="..."
+python3 -m pungen_agent.unitree_live <robot-interface> \
+  --backend funasr \
+  --trump-wav /path/to/trump-16k-mono.wav \
+  --ymca-wav /path/to/ymca-16k-mono.wav
+```
+
+The safe default maps the two show actions to G1 high-level wave actions. To
+use the real low-level accordion routine, first build and manually validate
+`robot/g1_trump_accordion_example.cpp`; then add:
+
+```bash
+--accordion-bin robot/build/g1_trump_accordion \
+--enable-low-level-accordion
+```
+
+See `robot/README.md` for the explicit safety gate. The C++ Unitree SDK2 is not
+currently present in this checkout, so the low-level binary is not built yet.
+Voice-pack and YMCA audio files are also user-supplied licensed assets.
+
 ## 中文
 
 Tanyue 是一个面向实时陪伴交互的数字人 Agent 项目。当前代码已经完成四个基础模块，并优先跑通了“语音输入 -> 大模型回复 -> 语音输出”的实时闭环。

@@ -9,12 +9,14 @@ import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 
 class EventHub:
     def __init__(self) -> None:
         self._condition = threading.Condition()
         self._events: list[tuple[int, dict[str, Any]]] = []
+        self._acknowledgements: dict[int, dict[str, Any]] = {}
         self._next_id = 1
 
     def publish(self, event: dict[str, Any]) -> int:
@@ -25,6 +27,24 @@ class EventHub:
             self._events = self._events[-500:]
             self._condition.notify_all()
             return event_id
+
+    def acknowledge(self, event_id: int, acknowledgement: dict[str, Any]) -> bool:
+        with self._condition:
+            if not any(candidate_id == event_id for candidate_id, _ in self._events):
+                return False
+            self._acknowledgements[event_id] = dict(acknowledgement)
+            self._condition.notify_all()
+            return True
+
+    def wait_for_ack(self, event_id: int, timeout: float = 3.0) -> dict[str, Any] | None:
+        deadline = time.monotonic() + timeout
+        with self._condition:
+            while event_id not in self._acknowledgements:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return None
+                self._condition.wait(remaining)
+            return dict(self._acknowledgements[event_id])
 
     def wait_after(self, last_id: int, timeout: float = 15.0) -> list[tuple[int, dict[str, Any]]]:
         deadline = time.monotonic() + timeout
@@ -69,7 +89,11 @@ class CharacterBridgeHandler(BaseHTTPRequestHandler):
         self._send_json({"ok": False, "error": "not found"}, status=HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:
-        if not self.path.startswith("/api/command"):
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/ack":
+            self._receive_ack()
+            return
+        if parsed.path != "/api/command":
             self._send_json({"ok": False, "error": "not found"}, status=HTTPStatus.NOT_FOUND)
             return
 
@@ -86,7 +110,24 @@ class CharacterBridgeHandler(BaseHTTPRequestHandler):
             return
 
         event_id = self.server.hub.publish(payload)  # type: ignore[attr-defined]
-        self._send_json({"ok": True, "id": event_id, "command": payload})
+        should_wait = (parse_qs(parsed.query).get("wait") or [""])[0] in {"1", "true"}
+        ack = self.server.hub.wait_for_ack(event_id) if should_wait else None  # type: ignore[attr-defined]
+        self._send_json({"ok": True, "id": event_id, "command": payload, "ack": ack})
+
+    def _receive_ack(self) -> None:
+        try:
+            payload = self._read_json()
+            event_id = int(payload.get("event_id"))
+            acknowledgement = payload.get("ack")
+            if not isinstance(acknowledgement, dict):
+                raise ValueError("ack must be an object")
+            accepted = self.server.hub.acknowledge(event_id, acknowledgement)  # type: ignore[attr-defined]
+            if not accepted:
+                self._send_json({"ok": False, "error": "unknown event_id"}, status=HTTPStatus.NOT_FOUND)
+                return
+            self._send_json({"ok": True, "event_id": event_id})
+        except Exception as error:
+            self._send_json({"ok": False, "error": str(error)}, status=HTTPStatus.BAD_REQUEST)
 
     def log_message(self, format: str, *args: Any) -> None:
         if getattr(self.server, "quiet", False):  # type: ignore[attr-defined]
