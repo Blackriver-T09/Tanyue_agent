@@ -54,7 +54,9 @@
 
 ```bash
 cd /Users/heihe/Desktop/Project/Tanyue
-python robot_voice/stream_tts_to_robot.py enp2s0 --volume 85
+conda activate Tanyue
+python robot_voice/stream_tts_to_robot.py --list-interfaces
+python robot_voice/stream_tts_to_robot.py <interface> --volume 85
 ```
 
 进入交互后：
@@ -70,6 +72,8 @@ python robot_voice/stream_tts_to_robot.py enp2s0 \
   --text "你好，我是檀月。现在开始测试宇树机器人发声。" \
   --volume 85
 ```
+
+注意：`enp2s0` 是 Linux 官方示例里的网卡名。Mac 上通常是 `en0`、`en4`、`en5`、`bridge0` 等，请使用 `--list-interfaces` 找到连接 G1 的实际网卡。
 
 常用交互命令：
 
@@ -99,6 +103,18 @@ python robot_voice/stream_tts_to_robot.py enp2s0 \
 - `ffmpeg`
 - `unitree_sdk2py`
 - `cyclonedds`
+
+当前已经在 `Tanyue` conda 环境安装了：
+
+```text
+cyclonedds==0.10.2
+```
+
+不要用 `base` 的 Python 3.13 运行宇树 SDK；`cyclonedds==0.10.2` 在 Python 3.13 下会编译失败。请使用：
+
+```bash
+conda activate Tanyue
+```
 
 如果没有全局安装 `unitree_sdk2py`，脚本会尝试使用：
 
