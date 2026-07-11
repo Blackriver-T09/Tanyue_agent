@@ -118,6 +118,7 @@ cp voice/.env.livekit.example voice/.env
 
 ```bash
 LIVEKIT_URL=ws://127.0.0.1:7880
+LIVEKIT_PUBLIC_URL=ws://172.16.22.134:7880
 LIVEKIT_API_KEY=devkey
 LIVEKIT_API_SECRET=devsecretdevsecretdevsecretdevsecret
 
@@ -324,7 +325,7 @@ tanyue-test-1
 
 ## 排障
 
-- 页面连接失败：确认 `LiveKit/docker-compose.yml` 正在运行，`LIVEKIT_URL=ws://127.0.0.1:7880`。
+- 页面连接失败：确认 `LiveKit/docker-compose.yml` 正在运行，并且浏览器拿到的 `LIVEKIT_PUBLIC_URL` 是可访问地址，不要是 `127.0.0.1`。
 - 页面能连接但没有 Agent：确认 `python tanyue_agent.py start` 仍在运行，并查看 `python tanyue_agent.py status --room <room>`。
 - 能显示用户转录但没有回复：看 worker 日志中是否出现 `Aliyun CosyVoice TTS error` 或 Qwen API 错误。
 - 从说完话到开始说话超过数秒：确认日志里 `qwen_thinking=False`。

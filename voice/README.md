@@ -86,6 +86,7 @@ cp voice/.env.livekit.example voice/.env
 
 ```bash
 LIVEKIT_URL=ws://127.0.0.1:7880
+LIVEKIT_PUBLIC_URL=ws://172.16.22.134:7880
 LIVEKIT_API_KEY=devkey
 LIVEKIT_API_SECRET=devsecretdevsecretdevsecretdevsecret
 ```

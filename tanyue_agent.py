@@ -27,6 +27,7 @@ if load_dotenv:
 
 os.environ.setdefault("LIVEKIT_LOG_LEVEL", "info")
 os.environ.setdefault("LIVEKIT_URL", "ws://127.0.0.1:7880")
+os.environ.setdefault("LIVEKIT_PUBLIC_URL", "ws://172.16.22.134:7880")
 os.environ.setdefault("LIVEKIT_API_KEY", "devkey")
 os.environ.setdefault("LIVEKIT_API_SECRET", "devsecretdevsecretdevsecretdevsecret")
 
@@ -80,6 +81,10 @@ def require_env(name: str) -> str:
     return value
 
 
+def livekit_public_url() -> str:
+    return os.environ.get("LIVEKIT_PUBLIC_URL") or require_env("LIVEKIT_URL")
+
+
 def create_app():
     from fastapi import FastAPI
     from fastapi import Body
@@ -109,7 +114,7 @@ def create_app():
     def livekit_token(room: str = "tanyue-room", name: str = "user") -> dict[str, str]:
         api_key = require_env("LIVEKIT_API_KEY")
         api_secret = require_env("LIVEKIT_API_SECRET")
-        livekit_url = require_env("LIVEKIT_URL")
+        livekit_url = livekit_public_url()
         identity = f"{name}-{uuid.uuid4().hex[:8]}"
         token = (
             AccessToken(api_key, api_secret)
@@ -379,7 +384,7 @@ async def collect_livekit_status(room: str = "tanyue-room") -> dict:
             participant_error = str(exc)
 
         return {
-            "livekit_url": require_env("LIVEKIT_URL"),
+            "livekit_url": livekit_public_url(),
             "room": room,
             "rooms": [
                 {
