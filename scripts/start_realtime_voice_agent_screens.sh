@@ -155,7 +155,7 @@ start_all() {
   require_docker_access
 
   mkdir -p "$LOG_DIR"
-  start_screen "livekit" 'cd "$PROJECT_ROOT/LiveKit"; exec docker compose up'
+  start_screen "livekit" 'cd LiveKit; exec docker compose up'
   start_screen "character_bridge" 'exec python character/scripts/character_bridge.py --host "'"$TANYUE_BRIDGE_HOST"'" --port "'"$TANYUE_BRIDGE_PORT"'"'
   start_screen "agent_worker" 'exec python tanyue_agent.py start'
   start_screen "web" 'exec python tanyue_agent.py web --host "'"$TANYUE_WEB_HOST"'" --port "'"$TANYUE_WEB_PORT"'"'
