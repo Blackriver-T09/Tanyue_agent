@@ -69,6 +69,12 @@ class CharacterAgent:
     def play_audio_url(self, url: str) -> dict[str, Any]:
         return self.command("playAudioUrl", url=url)
 
+    def set_model(self, model: str) -> dict[str, Any]:
+        return self.command("setModel", model=model)
+
+    def restore_model(self) -> dict[str, Any]:
+        return self.command("restoreModel")
+
     def start_microphone_lip_sync(self) -> dict[str, Any]:
         return self.command("startMicrophoneLipSync")
 

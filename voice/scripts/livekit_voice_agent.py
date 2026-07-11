@@ -373,6 +373,7 @@ class TanyueAssistant:
                 self._last_lip_sync_level = 0.0
                 self._pending_character_motion: str | None = None
                 self._pending_character_expression: str | None = None
+                self._voice_model_active = False
                 super().__init__(
                     instructions=(
                         "你是Tanyue的实时语音数字人。"
@@ -454,7 +455,9 @@ class TanyueAssistant:
                 try:
                     async for frame in self._aliyun_tts.synthesize_frames(text):
                         if not motion_started:
-                            self._start_pending_character_motion()
+                            self._start_pending_character_motion(
+                                model_key=self._aliyun_tts.selected_voice_key,
+                            )
                             motion_started = True
                         audio_seconds += self._frame_duration_seconds(frame)
                         self._send_lip_sync_frame(frame)
@@ -469,41 +472,49 @@ class TanyueAssistant:
                         await self._hold_expression_until_playout_finishes(audio_seconds, tts_started_at)
                     self._send_lip_sync_level(0.0, force=True)
                     self._reset_character_face()
+                    self._restore_character_model()
                     await self._publish_voice_state(False)
 
-            def _start_pending_character_motion(self) -> None:
+            def _start_pending_character_motion(self, model_key: str | None = None) -> None:
                 motion = self._pending_character_motion
                 expression = self._pending_character_expression or self._speaking_expression or "relaxed"
                 self._pending_character_motion = None
                 self._pending_character_expression = None
                 if not motion:
                     return
-                self._play_character_motion(motion, expression)
+                self._play_character_motion(motion, expression, model_key=model_key)
 
             def _clear_pending_character_motion(self) -> None:
                 self._pending_character_motion = None
                 self._pending_character_expression = None
 
-            def _play_character_motion(self, motion: str, expression: str) -> None:
+            def _play_character_motion(self, motion: str, expression: str, model_key: str | None = None) -> None:
                 if not self._character:
                     return
                 try:
-                    self._character.batch(
-                        [
-                            {
-                                "type": "setState",
-                                "payload": {
-                                    "expression": expression,
-                                    "expressionIntensity": 1.0,
-                                    "motionLoop": motion == self._default_motion,
-                                    "motionSpeed": 1.0,
-                                },
+                    commands: list[dict[str, Any]] = []
+                    if model_key:
+                        LOGGER.info("Tanyue character model switch: %s", model_key)
+                        commands.append({"type": "setModel", "model": model_key})
+                        self._voice_model_active = True
+                    commands.append(
+                        {
+                            "type": "setState",
+                            "payload": {
+                                "expression": expression,
+                                "expressionIntensity": 1.0,
+                                "motionLoop": motion == self._default_motion,
+                                "motionSpeed": 1.0,
                             },
-                            {"type": "playMotion", "motion": motion},
-                        ]
+                        }
                     )
+                    commands.append({"type": "playMotion", "motion": motion})
+                    self._character.batch(commands)
                 except Exception as exc:  # noqa: BLE001
                     LOGGER.info("Character motion command skipped: %s", exc)
+                else:
+                    if model_key:
+                        self._voice_model_active = True
 
             def _play_character_idle(self) -> None:
                 if not self._character:
@@ -533,6 +544,17 @@ class TanyueAssistant:
                     self._character.batch(commands)
                 except Exception as exc:  # noqa: BLE001
                     LOGGER.debug("Character face reset skipped: %s", exc)
+
+            def _restore_character_model(self) -> None:
+                if not self._character or not self._voice_model_active:
+                    return
+                try:
+                    LOGGER.info("Tanyue character model restore")
+                    self._character.restore_model()
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.debug("Character model restore skipped: %s", exc)
+                finally:
+                    self._voice_model_active = False
 
             def _frame_duration_seconds(self, frame: Any) -> float:
                 samples = getattr(frame, "samples_per_channel", 0) or 0

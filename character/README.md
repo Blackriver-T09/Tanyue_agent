@@ -134,6 +134,8 @@ avatar.set_pose("listening")
 avatar.set_expression("happy")
 avatar.play_motion("waving", loop=False, speed=1.0)
 avatar.set_lip_sync_level(0.65)
+avatar.set_model("dingzhen")
+avatar.restore_model()
 avatar.stop_motion()
 ```
 
@@ -147,6 +149,8 @@ from character.tanyue_character import CharacterAgent, CharacterAgentConfig
 avatar = CharacterAgent(CharacterAgentConfig(base_url="http://127.0.0.1:8893"))
 avatar.set_state(expression="relaxed", headYaw=8, energy=0.5)
 ```
+
+`set_model()` 会请求角色桥接层加载同名 VRM，例如 `dingzhen` 对应 `character/models/dingzhen.vrm`；`restore_model()` 会恢复到页面初始加载的默认模型。
 
 ## 命令格式
 
@@ -187,6 +191,14 @@ Content-Type: application/json
 {"type":"playAudioUrl","url":"/voice/output/tender.wav"}
 ```
 
+```json
+{"type":"setModel","model":"dingzhen"}
+```
+
+```json
+{"type":"restoreModel"}
+```
+
 批量命令：
 
 ```json
@@ -220,6 +232,9 @@ await window.tanyueCharacter.applyCommand({
   type: 'playMotion',
   motion: 'waving',
 });
+
+await window.tanyueCharacter.setModel('dingzhen');
+await window.tanyueCharacter.restoreModel();
 ```
 
 读取能力：

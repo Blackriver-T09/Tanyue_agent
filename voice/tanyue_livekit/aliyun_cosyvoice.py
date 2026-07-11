@@ -78,11 +78,16 @@ class AliyunCosyVoiceTTS:
         self.config = config
         self.sample_rate = config.sample_rate
         self._bad_voice_ids: set[str] = set()
+        self._voice_key_by_id: dict[str, str] = {}
+        self._selected_voice_id: str | None = None
+        self._selected_voice_key: str | None = None
+        self._refresh_voice_lookup()
 
     def ensure_cloned_voice(self, *, force: bool = False) -> str:
         voice_ids = ensure_cosyvoice_voices(self.config, force=force)
         voice_id = voice_ids[0]
         self.config = dataclass_replace(self.config, voice=voice_id, voice_pool=tuple(voice_ids))
+        self._refresh_voice_lookup(force=True)
         if len(voice_ids) > 1:
             LOGGER.info("Using Aliyun cloned voice pool: %s", ", ".join(voice_ids))
         return voice_id
@@ -99,7 +104,9 @@ class AliyunCosyVoiceTTS:
 
         candidates = self._voice_candidates()
         last_error: BaseException | None = None
-        for voice in candidates:
+        for voice, voice_key in candidates:
+            self._selected_voice_id = voice
+            self._selected_voice_key = voice_key
             try:
                 async for frame in self._synthesize_once(rtc, chunks, voice):
                     yield frame
@@ -250,15 +257,23 @@ class AliyunCosyVoiceTTS:
             samples_per_channel=samples_per_channel,
         )
 
-    def _select_voice(self) -> str:
-        pool = tuple(item for item in self.config.voice_pool if item)
-        if self.config.random_voice_enabled and len(pool) > 1:
-            return random.choice(pool)
-        if pool:
-            return pool[0]
-        return self.config.voice
+    def _refresh_voice_lookup(self, *, force: bool = False) -> None:
+        self._voice_key_by_id = {}
+        registry_path = self.config.voice_registry_path
+        if registry_path and registry_path.exists():
+            try:
+                for item in load_voice_registry(registry_path):
+                    voice_id = str(item.get("registered_voice_id") or "").strip()
+                    key = str(item.get("key") or "").strip()
+                    if voice_id and key:
+                        self._voice_key_by_id[voice_id] = key
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.debug("Could not refresh voice lookup: %s", exc)
 
-    def _voice_candidates(self) -> list[str]:
+    def _voice_key_for_id(self, voice_id: str) -> str | None:
+        return self._voice_key_by_id.get(voice_id)
+
+    def _voice_candidates(self) -> list[tuple[str, str | None]]:
         pool = [item for item in self.config.voice_pool if item and item not in self._bad_voice_ids]
         if self.config.voice and self.config.voice not in pool and self.config.voice not in self._bad_voice_ids:
             pool.append(self.config.voice)
@@ -266,9 +281,24 @@ class AliyunCosyVoiceTTS:
             pool.append(SAFE_VOICE)
         if not pool:
             pool = [self.config.voice or SAFE_VOICE]
+        deduped: list[tuple[str, str | None]] = []
+        seen: set[str] = set()
+        for voice_id in pool:
+            if voice_id in seen:
+                continue
+            seen.add(voice_id)
+            deduped.append((voice_id, self._voice_key_for_id(voice_id)))
         if self.config.random_voice_enabled and len(pool) > 1:
-            random.shuffle(pool)
-        return pool
+            random.shuffle(deduped)
+        return deduped
+
+    @property
+    def selected_voice_id(self) -> str | None:
+        return self._selected_voice_id
+
+    @property
+    def selected_voice_key(self) -> str | None:
+        return self._selected_voice_key
 
 
 class AliyunCosyVoiceRetryableError(RuntimeError):

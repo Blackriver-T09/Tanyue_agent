@@ -112,6 +112,10 @@ const posePresets = {
 
 const fbxMotions = {};
 let defaultIdleMotion = 'angry';
+const modelCatalog = [];
+const modelLibrary = new Map();
+let baseModelKey = 'LiuRuYan';
+let currentModelKey = null;
 
 const mixamoBoneMap = {
   mixamorigHips: 'hips',
@@ -218,6 +222,100 @@ function resize() {
   renderer.setSize(clientWidth, clientHeight, false);
   camera.aspect = clientWidth / Math.max(clientHeight, 1);
   camera.updateProjectionMatrix();
+}
+
+function normalizeModelKey(name) {
+  const raw = String(name || '').trim();
+  if (!raw) return 'LiuRuYan';
+  const fileName = raw.split('/').pop();
+  return fileName.replace(/\.vrm$/i, '');
+}
+
+function modelUrlForKey(key) {
+  return `./models/${encodeURIComponent(`${key}.vrm`)}`;
+}
+
+function buildModelCatalog() {
+  const modelParam = pageParams.get('model');
+  const baseKey = normalizeModelKey(modelParam || 'LiuRuYan');
+  const entries = [
+    baseKey,
+    'LiuRuYan',
+    'test_02',
+    'test_01',
+    'dingzhen',
+    'kobe',
+    'doubao',
+    'trump',
+  ];
+  const seen = new Set();
+  modelCatalog.length = 0;
+  for (const key of entries) {
+    const normalizedKey = normalizeModelKey(key);
+    if (seen.has(normalizedKey)) continue;
+    seen.add(normalizedKey);
+    modelCatalog.push({
+      key: normalizedKey,
+      url: modelUrlForKey(normalizedKey),
+    });
+  }
+  baseModelKey = baseKey;
+}
+
+async function preloadModel(entry) {
+  if (modelLibrary.has(entry.key)) return modelLibrary.get(entry.key);
+  const loader = new GLTFLoader();
+  loader.register((parser) => new VRMLoaderPlugin(parser));
+  setStatus(`Loading ${entry.key}.vrm...`);
+  const gltf = await loader.loadAsync(entry.url);
+  const vrm = gltf.userData.vrm;
+  VRMUtils.removeUnnecessaryVertices(gltf.scene);
+  if (VRMUtils.combineSkeletons) {
+    VRMUtils.combineSkeletons(gltf.scene);
+  }
+  vrm.scene.rotation.y = 0;
+  vrm.scene.traverse((obj) => {
+    obj.frustumCulled = false;
+  });
+  modelLibrary.set(entry.key, vrm);
+  return vrm;
+}
+
+function detachCurrentVrm() {
+  if (!currentVrm) return;
+  scene.remove(currentVrm.scene);
+}
+
+function attachCurrentVrm(vrm) {
+  currentVrm = vrm;
+  currentVrm.scene.rotation.y = 0;
+  currentVrm.scene.traverse((obj) => {
+    obj.frustumCulled = false;
+  });
+  scene.add(currentVrm.scene);
+  frameVrm(currentVrm);
+  currentVrm.updateMatrixWorld?.(true);
+}
+
+async function setActiveModel(modelKey, { keepMotion = false } = {}) {
+  const normalizedKey = normalizeModelKey(modelKey || baseModelKey);
+  const entry = modelCatalog.find((item) => item.key === normalizedKey) || modelCatalog[0];
+  if (!entry) throw new Error('No VRM model available');
+
+  const vrm = await preloadModel(entry);
+  if (currentModelKey === entry.key && currentVrm === vrm) {
+    return { ok: true, model: entry.key, status: 'already_active' };
+  }
+
+  if (!keepMotion) {
+    stopMotion();
+    resetFace();
+  }
+  detachCurrentVrm();
+  currentModelKey = entry.key;
+  attachCurrentVrm(vrm);
+  setStatus(`VRM ready · ${currentModelKey}.vrm`);
+  return { ok: true, model: currentModelKey, status: 'browser_applied' };
 }
 
 window.addEventListener('resize', resize);
@@ -741,6 +839,10 @@ async function applyAgentCommand(command = {}) {
     case 'setPose':
       applyPosePreset(command.pose || command.name);
       return { ok: true };
+    case 'setModel':
+      return await setActiveModel(command.model || command.name || command.key);
+    case 'restoreModel':
+      return await setActiveModel(baseModelKey);
     case 'playMotion':
       return await playMotion(command.motion || command.name);
     case 'stopMotion':
@@ -849,8 +951,10 @@ window.tanyueCharacter = {
   playMotion,
   playAudioBlob,
   playAudioUrl,
+  restoreModel: () => setActiveModel(baseModelKey),
   setLipSyncLevel,
   setMouth,
+  setModel: (model) => setActiveModel(model),
   setPose: applyPosePreset,
   setState: setCharacterState,
   startMicrophoneLipSync,
@@ -929,42 +1033,29 @@ function applyFace(time) {
 }
 
 async function loadVrm() {
-  const loader = new GLTFLoader();
-  loader.register((parser) => new VRMLoaderPlugin(parser));
-  const modelParam = pageParams.get('model');
-  const modelUrls = [
-    modelParam ? `./models/${encodeURIComponent(modelParam)}` : null,
-    './models/LiuRuYan.vrm',
-    './models/test_02.vrm',
-    './models/test_01.vrm',
-  ].filter(Boolean);
-
-  for (const modelUrl of modelUrls) {
+  buildModelCatalog();
+  for (const entry of modelCatalog) {
     try {
-      setStatus(`Loading ${modelUrl.split('/').pop()}...`);
-      const gltf = await loader.loadAsync(modelUrl);
-      const vrm = gltf.userData.vrm;
-      VRMUtils.removeUnnecessaryVertices(gltf.scene);
-      if (VRMUtils.combineSkeletons) {
-        VRMUtils.combineSkeletons(gltf.scene);
-      }
-
-      currentVrm = vrm;
-      currentVrm.scene.rotation.y = 0;
-      currentVrm.scene.traverse((obj) => {
-        obj.frustumCulled = false;
-      });
-      scene.add(currentVrm.scene);
-      frameVrm(currentVrm);
-      setStatus('VRM ready');
-      loadMotionManifest();
-      return;
+      await preloadModel(entry);
     } catch (error) {
-      console.warn(`Could not load VRM model ${modelUrl}.`, error);
+      console.warn(`Could not load VRM model ${entry.url}.`, error);
     }
   }
 
-  setStatus('Failed to load VRM');
+  const activeEntry = modelLibrary.has(baseModelKey)
+    ? { key: baseModelKey }
+    : modelCatalog.find((item) => modelLibrary.has(item.key));
+
+  if (!activeEntry) {
+    setStatus('Failed to load VRM');
+    return;
+  }
+
+  currentModelKey = activeEntry.key;
+  detachCurrentVrm();
+  attachCurrentVrm(modelLibrary.get(activeEntry.key));
+  setStatus(`VRM ready · ${currentModelKey}.vrm`);
+  loadMotionManifest();
 }
 
 const clock = new THREE.Clock();
