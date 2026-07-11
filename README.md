@@ -123,6 +123,11 @@ LIVEKIT_API_SECRET=devsecret
 
 TANYUE_STT_PROVIDER=aliyun
 TANYUE_ALIYUN_STT_MODEL=fun-asr-realtime
+TANYUE_ALIYUN_STT_NOISE_GATE_ENABLED=1
+TANYUE_ALIYUN_STT_NOISE_GATE_DBFS=-45
+TANYUE_ALIYUN_STT_NOISE_GATE_OPEN_MS=80
+TANYUE_ALIYUN_STT_NOISE_GATE_HANGOVER_MS=900
+TANYUE_ALIYUN_STT_NOISE_GATE_SEND_SILENCE=1
 
 TANYUE_QWEN_MODEL=qwen3.6-flash
 TANYUE_QWEN_ENABLE_THINKING=0
@@ -136,18 +141,41 @@ TANYUE_COSYVOICE_ENABLE_STYLE_PARAMS=0
 TANYUE_COSYVOICE_CLONE_ENABLED=1
 TANYUE_COSYVOICE_REFERENCE_AUDIO=voice/reference.wav
 TANYUE_COSYVOICE_CLONE_CACHE=voice/.cosyvoice_voice_id
+TANYUE_COSYVOICE_VOICE_REGISTRY=voice/cosyvoice_voices.json
+TANYUE_COSYVOICE_RANDOM_VOICE_ENABLED=1
 ```
 
 实时语音默认关闭 Qwen thinking。这个设置对延迟非常关键：实测默认 thinking 的首 token 可能接近 10 秒，关闭后通常进入亚秒级。
 
-CosyVoice 现在默认使用阿里云声音复刻。`voice/reference.wav` 是本地参考音频，不提交到 Git。首次创建复刻音色需要一个阿里云服务端可访问的公网音频 URL：
+ASR 前默认开启本地音量门限。未打开门限时，低于 `TANYUE_ALIYUN_STT_NOISE_GATE_DBFS` 的麦克风音频会直接丢弃，不送到阿里云 STT；必须连续超过阈值 `TANYUE_ALIYUN_STT_NOISE_GATE_OPEN_MS` 毫秒才会打开 ASR。门限打开后，低于阈值的原始麦克风声仍不会被送出，但会发送短暂的纯数字静音来保持 ASR 时间连续并触发句末 final。环境噪声大时可以把阈值调高，例如 `-40`；误吞正常说话时调低，例如 `-50`。
 
-```bash
-TANYUE_COSYVOICE_CLONE_AUDIO_URL=https://your-valid-public-url/reference.wav \
-python tanyue_agent.py clone-voice --force
+CosyVoice 现在默认使用阿里云声音复刻。实时 Agent 会优先读取 `voice/cosyvoice_voices.json` 中所有已注册的 `voice_id`，每次 TTS 合成随机选择一个音色；如果注册表不存在或没有可用 `voice_id`，才退回单个 `voice/.cosyvoice_voice_id` 缓存。
+
+注册表对应的本地参考音频放在：
+
+```text
+voice/reference_voice/
 ```
 
-创建成功后，voice_id 会写入 `voice/.cosyvoice_voice_id`。后续实时对话直接复用缓存 voice_id，不再上传参考音频。
+注意：阿里云 `voice-enrollment` 创建音色时需要阿里云服务端可访问的公网音频 URL，本地文件路径不能直接传给云端。拿到公网 URL 后注册：
+
+```bash
+python tanyue_agent.py clone-voice \
+  --url doubao=https://your-public-host/doubao.wav
+```
+
+如果已经在阿里云控制台或其他脚本中注册好了 voice_id，可以直接写回注册表：
+
+```bash
+python tanyue_agent.py clone-voice \
+  --set-voice-id doubao=cosyvoice-v3.5-plus-doubao-xxxxxxxx
+```
+
+查看当前注册表：
+
+```bash
+python tanyue_agent.py clone-voice --list-voices
+```
 
 如果参考音频是 44.1kHz stereo，建议先转成 24kHz mono 再注册，减少音高异常、低沉或抖动。
 
@@ -233,21 +261,24 @@ http://127.0.0.1:8894
 
 同一个房间断开后再次 Connect 时，Web 服务会替换旧 dispatch 并创建新的 Agent job，避免复用已经关闭的旧工作流。
 
-### 三幕剧情模式
+### 玩梗模式
 
-Web 面板提供 `Scene` 选择：
+当前 Web 面板不再提供三幕剧情选择。实时链路固定为玩梗模式：
 
-- `第一幕：羞辱期`：柳如烟保持恶毒女配姿态，核心是身份贬低、轻蔑、不屑。
-- `第二幕：反转期`：听到“三年之期已到，恭迎龙王回归”后的硬切惊恐和语无伦次。
-- `第三幕：求饶期`：确认龙王身份后的夸张求饶，并回收第一幕羞辱话术制造打脸回声。
-
-切换 `Scene` 时，前端会清空 Session log，生成新的 LiveKit room 名称并重新 dispatch Agent。这样做是为了清空上一幕聊天上下文，避免第一幕的强势语气残留到第二幕或第三幕。dispatch metadata 会包含：
-
-```json
-{"scene":"humiliation"}
+```text
+用户语音 -> 阿里云 STT -> pungen_agent 本地梗识别
+         -> 用户原文 + 梗识别结果 -> Qwen 在线 LLM
+         -> 阿里云 CosyVoice -> LiveKit 播放
+         -> 数字人动作 / 表情
 ```
 
-可选值为 `humiliation`、`reversal`、`pleading`。命令行排查时可以运行：
+`pungen_agent` 当前默认使用本地梗库匹配，不额外调用在线 API。Qwen 会收到压缩后的梗识别 JSON，但不会把 `meme_id`、`confidence` 等内部字段念出来。dispatch metadata 会包含：
+
+```json
+{"mode":"meme_play"}
+```
+
+命令行排查时可以运行：
 
 ```bash
 python tanyue_agent.py status --room <当前页面里的Room>

@@ -65,6 +65,11 @@ cp voice/.env.livekit.example voice/.env
 - `TANYUE_COSYVOICE_CLONE_ENABLED=1`
 - `TANYUE_COSYVOICE_REFERENCE_AUDIO=voice/reference.wav`
 - `TANYUE_COSYVOICE_CLONE_CACHE=voice/.cosyvoice_voice_id`
+- `TANYUE_COSYVOICE_VOICE_REGISTRY=voice/cosyvoice_voices.json`
+- `TANYUE_COSYVOICE_RANDOM_VOICE_ENABLED=1`
+- `TANYUE_ALIYUN_STT_NOISE_GATE_ENABLED=1`
+- `TANYUE_ALIYUN_STT_NOISE_GATE_DBFS=-45`
+- `TANYUE_ALIYUN_STT_NOISE_GATE_OPEN_MS=80`
 - `TANYUE_CHARACTER_ENABLED=1`
 - `TANYUE_CHARACTER_BRIDGE_URL=http://127.0.0.1:8893`
 - `TANYUE_CHARACTER_EXPRESSIONS=`，留空时从当前 VRM 模型读取 preset expression
@@ -169,20 +174,30 @@ Web 面板的 `Scene` 选择会写入 Agent dispatch metadata：
 当前 TTS 默认使用阿里云 CosyVoice 声音复刻。流程是：
 
 1. 使用参考音频创建阿里云 voice_id。
-2. 将 voice_id 缓存到 `voice/.cosyvoice_voice_id`。
-3. 实时对话时直接把缓存 voice_id 作为 `voice` 参数传给 CosyVoice。
+2. 将多个 voice_id 写入 `voice/cosyvoice_voices.json`。
+3. 实时对话时每次 TTS 调用从已注册 voice_id 中随机选择一个。
 
 参考音频：
 
 ```text
-voice/reference.wav
+voice/reference_voice/
 ```
 
 注意：阿里云 `voice-enrollment` 创建音色时需要公网可访问的音频 URL，本地文件路径不能直接传给云端。首次创建或强制刷新时使用：
 
 ```bash
-TANYUE_COSYVOICE_CLONE_AUDIO_URL=https://your-valid-public-url/reference.wav \
-python tanyue_agent.py clone-voice --force
+python tanyue_agent.py clone-voice \
+  --url dingzhen=https://your-public-host/dingzhen.wav \
+  --url kobe=https://your-public-host/kobe.wav \
+  --url doubao=https://your-public-host/doubao.wav \
+  --url trump=https://your-public-host/trump.wav
+```
+
+如果已经在阿里云控制台或其他脚本中注册好了 voice_id，可以只写回本地注册表：
+
+```bash
+python tanyue_agent.py clone-voice \
+  --set-voice-id doubao=cosyvoice-v3.5-plus-doubao-xxxxxxxx
 ```
 
 如果参考音频是 44.1kHz stereo，建议先转成 24kHz mono 再注册，减少音高异常、低沉或抖动：
@@ -193,13 +208,19 @@ ffmpeg -y -i voice/reference.wav -ac 1 -ar 24000 -sample_fmt s16 \
   voice/tmp/reference_24k_mono.wav
 ```
 
-创建成功后可以直接运行：
+查看当前音色注册表：
+
+```bash
+python tanyue_agent.py clone-voice --list-voices
+```
+
+注册完成后可以直接运行：
 
 ```bash
 python tanyue_agent.py start
 ```
 
-如果 `voice/.cosyvoice_voice_id` 已存在，worker 启动时会直接复用缓存，不会重新上传或重新复刻。
+如果 `voice/cosyvoice_voices.json` 里有可用 voice_id，worker 启动时会直接复用注册表，不会重新上传或重新复刻；只有注册表不可用时才退回 `voice/.cosyvoice_voice_id` 单音色缓存。
 
 当前默认不向 TTS 传情感提示词。声音复刻质量稳定后，如需重新启用风格控制，可设置：
 
@@ -213,6 +234,7 @@ TANYUE_COSYVOICE_ENABLE_STYLE_PARAMS=1
 如果页面能显示用户转录，但没有 Agent 文本或语音回复，优先看 `python tanyue_agent.py start` 的后台日志：
 
 - 看到 `Aliyun STT final transcript`：说明麦克风、LiveKit、阿里云 STT 都已经正常。
+- 环境人声或底噪误触发 ASR：调高 `TANYUE_ALIYUN_STT_NOISE_GATE_DBFS`，例如从 `-45` 改成 `-40`；也可以提高 `TANYUE_ALIYUN_STT_NOISE_GATE_OPEN_MS`，让短促波动更难打开 ASR。如果正常说话被吞掉，调低到 `-50`。门限只影响送往阿里云的 ASR 音频，不影响浏览器麦克风电平显示。门限打开后的句末会发送纯数字静音给 ASR，不会录入低音量环境声。
 - 看到 `Tanyue job accepted`：确认当前实际使用的 `qwen_model`、`qwen_thinking`、`qwen_max_tokens`、`cosyvoice_model` 和 `voice`。
 - 看到 `Using cached Aliyun cloned voice_id`：说明声音复刻缓存已生效。
 - 创建复刻音色时报 `url error`：说明 `TANYUE_COSYVOICE_CLONE_AUDIO_URL` 不是阿里云服务端可访问的有效公网 URL，建议使用 OSS 或有效证书的 HTTPS 静态文件地址。

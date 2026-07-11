@@ -27,6 +27,7 @@ class RemoteTTSConfig:
 @dataclass(frozen=True)
 class TTSRequest:
     text: str
+    voice_id: str = "default"
     emotion: str = ""
     emotion_strength: str = "strong"
     mode: str = "auto"
@@ -81,6 +82,7 @@ class RemoteTTSClient:
         resolved_mode = resolve_mode(req.mode, req.emotion, req.instruct_text)
         payload = {
             "text": text,
+            "voice_id": req.voice_id,
             "mode": resolved_mode,
             "speed": req.speed,
         }
@@ -208,4 +210,3 @@ def resolve_mode(mode: str, emotion: str = "", instruct_text: str | None = None)
     if mode == "auto":
         return "instruct2" if emotion.strip() or instruct_text else "cross_lingual"
     return mode
-

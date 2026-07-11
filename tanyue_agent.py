@@ -95,11 +95,9 @@ def create_app():
     async def dispatch_agent(
         room: str = "tanyue-room",
         replace: bool = True,
-        scene: str = "humiliation",
     ) -> dict[str, str | list[str]]:
         agent_name = os.environ.get("TANYUE_LIVEKIT_AGENT_NAME", "tanyue")
-        scene = scene if scene in {"humiliation", "reversal", "pleading"} else "humiliation"
-        metadata = json.dumps({"scene": scene}, ensure_ascii=False)
+        metadata = json.dumps({"mode": "meme_play"}, ensure_ascii=False)
         livekit = LiveKitAPI(
             require_env("LIVEKIT_URL"),
             require_env("LIVEKIT_API_KEY"),
@@ -134,7 +132,7 @@ def create_app():
                 "status": "replaced" if deleted_dispatches else "dispatched",
                 "agent_name": agent_name,
                 "room": room,
-                "scene": scene,
+                "mode": "meme_play",
                 "dispatch_id": dispatch.id,
                 "deleted_dispatches": deleted_dispatches,
             }
@@ -274,12 +272,76 @@ def run_status(args: argparse.Namespace) -> None:
 
 def run_clone_voice(args: argparse.Namespace) -> None:
     from voice.scripts.livekit_voice_agent import dashscope_api_key
-    from voice.tanyue_livekit.aliyun_cosyvoice import AliyunCosyVoiceTTS, config_from_env
+    from voice.tanyue_livekit.aliyun_cosyvoice import (
+        AliyunCosyVoiceTTS,
+        config_from_env,
+        create_cosyvoice_clone_http,
+        dataclass_replace,
+        load_voice_registry,
+        normalize_clone_prefix,
+        update_voice_registry_entry,
+    )
 
     api_key = dashscope_api_key()
-    tts = AliyunCosyVoiceTTS(config_from_env(api_key=api_key))
+    config = config_from_env(api_key=api_key)
+    registry_path = config.voice_registry_path
+    if args.list_voices:
+        if registry_path and registry_path.exists():
+            for item in load_voice_registry(registry_path):
+                voice_id = item.get("registered_voice_id") or "(unregistered)"
+                print(f"{item['key']:12s} voice_id={voice_id} source={item.get('source_file_name', '')}")
+        else:
+            print(f"voice registry not found: {registry_path}")
+        return
+
+    if args.set_voice_id:
+        if not registry_path:
+            raise RuntimeError("Missing TANYUE_COSYVOICE_VOICE_REGISTRY path.")
+        for key, voice_id in args.set_voice_id:
+            update_voice_registry_entry(registry_path, key, voice_id)
+            print(f"{key}: registered_voice_id={voice_id}")
+
+    if args.url:
+        if not registry_path:
+            raise RuntimeError("Missing TANYUE_COSYVOICE_VOICE_REGISTRY path.")
+        for key, url in args.url:
+            prefix = normalize_clone_prefix(key)
+            source_file_name = Path(url.split("?", 1)[0]).name
+            voice_id = create_cosyvoice_clone_http(
+                dataclass_replace(
+                    config,
+                    clone_prefix=prefix,
+                    clone_audio_url=url,
+                    clone_max_prompt_audio_length=args.max_seconds,
+                ),
+                prefix=prefix,
+                audio_url=url,
+            )
+            update_voice_registry_entry(registry_path, key, voice_id, source_file_name=source_file_name)
+            print(f"{key}: registered_voice_id={voice_id}")
+
+    if args.list_voices or args.set_voice_id or args.url:
+        print(f"updated: {registry_path}")
+        if registry_path and registry_path.exists():
+            for item in load_voice_registry(registry_path):
+                voice_id = item.get("registered_voice_id") or "(unregistered)"
+                print(f"{item['key']:12s} voice_id={voice_id} source={item.get('source_file_name', '')}")
+        return
+
+    tts = AliyunCosyVoiceTTS(config)
     voice_id = tts.ensure_cloned_voice(force=args.force)
     print(f"voice_id={voice_id}")
+
+
+def parse_pair(value: str) -> tuple[str, str]:
+    if "=" not in value:
+        raise argparse.ArgumentTypeError("expected KEY=VALUE")
+    key, item = value.split("=", 1)
+    key = key.strip()
+    item = item.strip()
+    if not key or not item:
+        raise argparse.ArgumentTypeError("expected non-empty KEY=VALUE")
+    return key, item
 
 
 def run_web(args: argparse.Namespace) -> None:
@@ -305,6 +367,10 @@ def main() -> int:
     status_parser.add_argument("--room", default="tanyue-room")
     clone_parser = subparsers.add_parser("clone-voice", help="Create or refresh the Aliyun CosyVoice cloned voice.")
     clone_parser.add_argument("--force", action="store_true", help="Ignore the cached voice_id and create a new cloned voice.")
+    clone_parser.add_argument("--list-voices", action="store_true", help="List registered cloned voices.")
+    clone_parser.add_argument("--url", action="append", type=parse_pair, default=[], help="Register a voice from public audio URL: key=https://...")
+    clone_parser.add_argument("--set-voice-id", action="append", type=parse_pair, default=[], help="Write an existing voice_id into the registry: key=voice_id.")
+    clone_parser.add_argument("--max-seconds", type=float, default=20.0, help="Max prompt audio length for Aliyun voice enrollment.")
 
     if len(sys.argv) == 1 or sys.argv[1] in {"-h", "--help"}:
         parser.print_help()

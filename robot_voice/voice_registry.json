@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "voices": [
+    {
+      "key": "default",
+      "registered_voice_id": "cosyvoice-v3.5-plus-tanyue-700eafbd678640478ab82fd3ac74cec6",
+      "source_file_name": "",
+      "display_name": "Default",
+      "notes": "Current Tanyue default cloned voice cached in voice/.cosyvoice_voice_id."
+    },
+    {
+      "key": "dingzhen",
+      "registered_voice_id": "cosyvoice-v3.5-plus-dingzhen-82591adf0b7d4320a62f582b52b11b5f",
+      "source_file_name": "Dingzhen.mp3",
+      "display_name": "Dingzhen",
+      "notes": "Registered with Aliyun CosyVoice voice enrollment on 2026-07-10."
+    },
+    {
+      "key": "kobe",
+      "registered_voice_id": "cosyvoice-v3.5-plus-kobe-b414afd6e3bf4cf8ba9bbbf64efeca2f",
+      "source_file_name": "Kobe.wav",
+      "display_name": "Kobe",
+      "notes": "Re-registered on 2026-07-10 from a normalized mid-file segment to avoid prompt-content leakage from the opening line."
+    },
+    {
+      "key": "trump",
+      "registered_voice_id": "cosyvoice-v3.5-plus-trump-67a0db318a004b3798708ff3295c1abd",
+      "source_file_name": "trump.wav",
+      "display_name": "Trump",
+      "notes": "Using the deployed Aliyun voice_id. New louder uploads registered as UNDEPLOYED and cannot synthesize."
+    }
+  ]
+}

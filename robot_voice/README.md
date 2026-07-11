@@ -32,12 +32,14 @@
 
 ## Implemented Prototype
 
-当前已经从 `/voice` 复制并本地化了远程 CosyVoice 流式 TTS 客户端，并增加了 G1 播放链路：
+当前默认使用本地项目配置的阿里云在线 CosyVoice TTS，并增加了 G1 播放链路：
 
-- `remote_tts_client.py`
-  - 从 `/voice/tanyue_voice_remote/agent.py` 复制/裁剪而来
-  - 请求远程 `/tts/stream`
+- `aliyun_cosyvoice_client.py`
+  - 使用 `Config.py`、项目 `.env` 或 `voice/.env` 中的 DashScope / 百炼配置
+  - 通过阿里云 `dashscope.audio.tts_v2.SpeechSynthesizer` 在线流式合成
   - 输出 `24 kHz / mono / s16le` PCM 流
+- `remote_tts_client.py`
+  - 保留为 legacy 远程 `/tts/stream` 备用入口
 - `pcm_resampler.py`
   - 使用 `ffmpeg` 将 `24 kHz / mono / s16le` 流式重采样为 G1 需要的 `16 kHz / mono / s16le`
 - `unitree_g1_voice.py`
@@ -47,6 +49,10 @@
 - `stream_tts_to_robot.py`
   - 终端交互入口
   - 输入一句话，按回车后远程 TTS 开始流式生成，并通过 G1 `PlayStream` 播放
+- `voice_registry.json`
+  - 本地音色表，记录本地选择 key、阿里云注册 voice_id、源文件名
+- `register_aliyun_voices.py`
+  - 调用阿里云声音复刻注册接口，并把返回的 voice_id 写回本地音色表
 
 ## Run
 
@@ -69,8 +75,9 @@ networksetup -setmanual AX88179A 192.168.123.222 255.255.255.0
 cd /Users/heihe/Desktop/Project/Tanyue
 conda activate Tanyue
 python robot_voice/stream_tts_to_robot.py --list-interfaces
+python robot_voice/stream_tts_to_robot.py --list-voices
 python robot_voice/stream_tts_to_robot.py en7 --check
-python robot_voice/stream_tts_to_robot.py en7 --volume 100 --gain-db 6
+python robot_voice/stream_tts_to_robot.py en7 --volume 100 --gain-db 6 --voice default
 ```
 
 进入交互后：
@@ -85,6 +92,7 @@ python robot_voice/stream_tts_to_robot.py en7 --volume 100 --gain-db 6
 python robot_voice/stream_tts_to_robot.py en7 \
   --volume 100 \
   --gain-db 6 \
+  --voice default \
   --text "你好，我是檀月。现在开始测试宇树机器人发声。"
 ```
 
@@ -100,10 +108,70 @@ python robot_voice/stream_tts_to_robot.py en7 \
 /volume 0-100
 /led 255 80 120
 /gain 6
+/voice default
+/voices
 /builtin 使用机器人内置 TTS 说这句话
 /status
 /help
 ```
+
+## Voice Registry
+
+本地音色表：
+
+```text
+robot_voice/voice_registry.json
+```
+
+当前表结构是：
+
+```text
+key        registered_voice_id                                      source_file_name
+default    cosyvoice-v3.5-plus-tanyue-700eafbd678640478ab82fd3ac74cec6    current Tanyue cloned voice
+dingzhen   cosyvoice-v3.5-plus-dingzhen-82591adf0b7d4320a62f582b52b11b5f    Dingzhen.mp3
+kobe       cosyvoice-v3.5-plus-kobe-b414afd6e3bf4cf8ba9bbbf64efeca2f    Kobe.wav
+trump      cosyvoice-v3.5-plus-trump-67a0db318a004b3798708ff3295c1abd    trump.wav
+```
+
+参考音频放在：
+
+```text
+robot_voice/reference_voice/
+```
+
+阿里云声音复刻创建 `voice_id` 时，接口需要云端可访问的公网音频 URL，本地文件路径不能直接传给阿里云。拿到公网 URL 后注册并写回本地表：
+
+```bash
+python robot_voice/register_aliyun_voices.py \
+  --url dingzhen=https://your-public-host/Dingzhen.mp3 \
+  --url kobe=https://your-public-host/Kobe.mp3 \
+  --url trump=https://your-public-host/trump.wav
+```
+
+如果你已经在阿里云控制台或其他脚本中注册好了 voice_id，也可以只写回本地表：
+
+```bash
+python robot_voice/register_aliyun_voices.py \
+  --set-voice-id dingzhen=cosyvoice-v3.5-plus-dingzhen-xxxxxxxx \
+  --set-voice-id kobe=cosyvoice-v3.5-plus-kobe-xxxxxxxx \
+  --set-voice-id trump=cosyvoice-v3.5-plus-trump-xxxxxxxx
+```
+
+查看当前可选音色：
+
+```bash
+python robot_voice/stream_tts_to_robot.py --list-voices
+```
+
+使用指定音色：
+
+```bash
+python robot_voice/stream_tts_to_robot.py en7 --volume 100 --gain-db 6 --voice dingzhen
+```
+
+Kobe 音色使用 `Kobe.wav` 的中段清洗片段注册，避免把参考音频开头的固定台词带进合成结果。
+
+目前 `default`、`dingzhen`、`kobe`、`trump` 均已注册并可直接通过 `--voice` 选择。
 
 ### Playback Completeness
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
 import threading
 import time
@@ -28,6 +29,12 @@ class AliyunRealtimeSTTConfig:
     semantic_punctuation: bool = False
     max_sentence_silence_ms: int = 400
     skip_preflight: bool = True
+    noise_gate_enabled: bool = True
+    noise_gate_dbfs: float = -45.0
+    noise_gate_open_ms: int = 80
+    noise_gate_hangover_ms: int = 900
+    noise_gate_send_silence_after_speech: bool = True
+    noise_gate_log_interval_s: float = 5.0
 
     @property
     def websocket_url(self) -> str:
@@ -95,6 +102,12 @@ class _AliyunSpeechStream(stt.SpeechStream):
         self._closed = threading.Event()
         self._recognizer = None
         self._in_speech = False
+        self._gate_open = False
+        self._last_loud_audio_at = 0.0
+        self._pending_loud_audio: list[bytes] = []
+        self._pending_loud_ms = 0.0
+        self._last_gate_log_at = 0.0
+        self._suppressed_frames = 0
 
     async def _run(self) -> None:
         self._loop = asyncio.get_running_loop()
@@ -116,6 +129,9 @@ class _AliyunSpeechStream(stt.SpeechStream):
                     continue
                 data = bytes(item.data)
                 if data:
+                    data = self._gate_audio(data)
+                    if not data:
+                        continue
                     await asyncio.to_thread(self._recognizer.send_audio_frame, data)
         finally:
             await asyncio.to_thread(self._stop_recognizer)
@@ -166,6 +182,59 @@ class _AliyunSpeechStream(stt.SpeechStream):
         except Exception:
             pass
         self._closed.wait(timeout=5)
+
+    def _gate_audio(self, data: bytes) -> bytes:
+        config = self._aliyun_stt.config
+        if not config.noise_gate_enabled:
+            return data
+
+        dbfs = pcm16_dbfs(data)
+        now = time.monotonic()
+        is_loud = dbfs >= config.noise_gate_dbfs
+        if is_loud:
+            self._last_loud_audio_at = now
+            if self._gate_open:
+                return data
+
+            self._pending_loud_audio.append(data)
+            self._pending_loud_ms += audio_duration_ms(data, config.sample_rate)
+            if self._pending_loud_ms >= config.noise_gate_open_ms:
+                self._gate_open = True
+                joined = b"".join(self._pending_loud_audio)
+                self._pending_loud_audio.clear()
+                self._pending_loud_ms = 0.0
+                LOGGER.info(
+                    "Aliyun STT noise gate opened: dbfs=%.1f threshold=%.1f open_ms=%d",
+                    dbfs,
+                    config.noise_gate_dbfs,
+                    config.noise_gate_open_ms,
+                )
+                return joined
+            return b""
+
+        self._suppressed_frames += 1
+        self._pending_loud_audio.clear()
+        self._pending_loud_ms = 0.0
+        if now - self._last_gate_log_at >= config.noise_gate_log_interval_s:
+            LOGGER.debug(
+                "Aliyun STT noise gate suppressing low audio: dbfs=%.1f threshold=%.1f frames=%d",
+                dbfs,
+                config.noise_gate_dbfs,
+                self._suppressed_frames,
+            )
+            self._last_gate_log_at = now
+            self._suppressed_frames = 0
+
+        if self._gate_open:
+            hangover_s = max(0.0, config.noise_gate_hangover_ms / 1000.0)
+            if now - self._last_loud_audio_at <= hangover_s:
+                # Do not send the real below-threshold microphone frame. Digital silence
+                # preserves ASR timing and lets the cloud recognizer finish the sentence.
+                return b"\x00" * len(data) if config.noise_gate_send_silence_after_speech else b""
+            LOGGER.info("Aliyun STT noise gate closed: dbfs=%.1f threshold=%.1f", dbfs, config.noise_gate_dbfs)
+            self._gate_open = False
+
+        return b""
 
     def _handle_result(self, result: Any) -> None:
         from dashscope.audio.asr import RecognitionResult
@@ -242,4 +311,36 @@ def config_from_env(api_key: str | None = None) -> AliyunRealtimeSTTConfig:
         url=os.environ.get("TANYUE_ALIYUN_STT_URL") or os.environ.get("DASHSCOPE_FUNASR_WEBSOCKET_URL"),
         semantic_punctuation=os.environ.get("TANYUE_ALIYUN_STT_PUNCTUATION", "0") in {"1", "true", "True"},
         max_sentence_silence_ms=int(os.environ.get("TANYUE_ALIYUN_STT_SILENCE_MS", "400")),
+        noise_gate_enabled=os.environ.get("TANYUE_ALIYUN_STT_NOISE_GATE_ENABLED", "1") in {"1", "true", "True"},
+        noise_gate_dbfs=float(os.environ.get("TANYUE_ALIYUN_STT_NOISE_GATE_DBFS", "-45")),
+        noise_gate_open_ms=int(os.environ.get("TANYUE_ALIYUN_STT_NOISE_GATE_OPEN_MS", "80")),
+        noise_gate_hangover_ms=int(os.environ.get("TANYUE_ALIYUN_STT_NOISE_GATE_HANGOVER_MS", "900")),
+        noise_gate_send_silence_after_speech=os.environ.get(
+            "TANYUE_ALIYUN_STT_NOISE_GATE_SEND_SILENCE",
+            "1",
+        ) in {"1", "true", "True"},
+        noise_gate_log_interval_s=float(os.environ.get("TANYUE_ALIYUN_STT_NOISE_GATE_LOG_INTERVAL_S", "5")),
     )
+
+
+def pcm16_dbfs(data: bytes) -> float:
+    if len(data) < 2:
+        return -120.0
+    if len(data) % 2:
+        data = data[:-1]
+    samples = memoryview(data).cast("h")
+    if not samples:
+        return -120.0
+    square_sum = 0
+    for sample in samples:
+        square_sum += sample * sample
+    rms = math.sqrt(square_sum / len(samples)) / 32768.0
+    if rms <= 0.0:
+        return -120.0
+    return 20.0 * math.log10(rms)
+
+
+def audio_duration_ms(data: bytes, sample_rate: int) -> float:
+    if sample_rate <= 0:
+        return 0.0
+    return (len(data) / 2.0) / float(sample_rate) * 1000.0

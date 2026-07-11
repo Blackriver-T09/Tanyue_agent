@@ -6,6 +6,7 @@ Config.py
 !*.example
 voice/.cosyvoice_voice_id
 voice/reference_voice.*
+voice/reference_voice/
 voice/reference.wav
 voice/tmp/
 

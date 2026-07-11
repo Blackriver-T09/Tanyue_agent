@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 from pathlib import Path
 import queue as sync_queue
+import random
 import threading
 from dataclasses import dataclass, field
 from typing import AsyncIterable, AsyncIterator
@@ -18,6 +20,7 @@ LEGACY_INVALID_VOICE = "longanyang"
 DEFAULT_CLONE_PREFIX = "tanyue"
 DEFAULT_REFERENCE_AUDIO = "voice/reference.wav"
 DEFAULT_CLONE_CACHE = "voice/.cosyvoice_voice_id"
+DEFAULT_VOICE_REGISTRY = "voice/cosyvoice_voices.json"
 
 
 @dataclass(frozen=True)
@@ -42,6 +45,9 @@ class AliyunCosyVoiceConfig:
     clone_target_model: str | None = None
     clone_audio_url: str | None = None
     clone_max_prompt_audio_length: float | None = 20.0
+    voice_registry_path: Path | None = None
+    random_voice_enabled: bool = False
+    voice_pool: tuple[str, ...] = ()
 
     @property
     def websocket_url(self) -> str | None:
@@ -71,15 +77,55 @@ class AliyunCosyVoiceTTS:
     def __init__(self, config: AliyunCosyVoiceConfig) -> None:
         self.config = config
         self.sample_rate = config.sample_rate
+        self._bad_voice_ids: set[str] = set()
 
     def ensure_cloned_voice(self, *, force: bool = False) -> str:
-        voice_id = ensure_cosyvoice_clone(self.config, force=force)
-        self.config = dataclass_replace(self.config, voice=voice_id)
+        voice_ids = ensure_cosyvoice_voices(self.config, force=force)
+        voice_id = voice_ids[0]
+        self.config = dataclass_replace(self.config, voice=voice_id, voice_pool=tuple(voice_ids))
+        if len(voice_ids) > 1:
+            LOGGER.info("Using Aliyun cloned voice pool: %s", ", ".join(voice_ids))
         return voice_id
 
     async def synthesize_frames(self, text: AsyncIterable[str]) -> AsyncIterator["rtc.AudioFrame"]:
         from livekit import rtc
 
+        chunks: list[str] = []
+        async for chunk in text:
+            if chunk and chunk.strip():
+                chunks.append(chunk.strip())
+        if not chunks:
+            return
+
+        candidates = self._voice_candidates()
+        last_error: BaseException | None = None
+        for voice in candidates:
+            try:
+                async for frame in self._synthesize_once(rtc, chunks, voice):
+                    yield frame
+                return
+            except AliyunCosyVoiceRetryableError as exc:
+                self._bad_voice_ids.add(voice)
+                last_error = exc
+                LOGGER.warning(
+                    "Aliyun CosyVoice voice failed before audio: voice=%s error=%s, retrying",
+                    voice,
+                    exc,
+                )
+                continue
+            except BaseException as exc:  # noqa: BLE001
+                last_error = exc
+                break
+
+        if last_error:
+            raise last_error
+
+    async def _synthesize_once(
+        self,
+        rtc,
+        chunks: list[str],
+        voice: str,
+    ) -> AsyncIterator["rtc.AudioFrame"]:
         audio_queue: asyncio.Queue[bytes | BaseException | None] = asyncio.Queue()
         text_queue: sync_queue.Queue[str | None] = sync_queue.Queue()
         loop = asyncio.get_running_loop()
@@ -105,14 +151,21 @@ class AliyunCosyVoiceTTS:
                         put_threadsafe(data)
 
                     def on_error(self, message: str) -> None:
-                        put_threadsafe(RuntimeError(f"Aliyun CosyVoice TTS error: {message}"))
+                        if first_audio:
+                            put_threadsafe(
+                                AliyunCosyVoiceRetryableError(
+                                    f"Aliyun CosyVoice TTS error before audio: {message}"
+                                )
+                            )
+                        else:
+                            put_threadsafe(RuntimeError(f"Aliyun CosyVoice TTS error: {message}"))
 
                     def on_complete(self) -> None:
                         put_threadsafe(None)
 
                 kwargs = {
                     "model": self.config.model,
-                    "voice": self.config.voice,
+                    "voice": voice,
                     "format": AudioFormat.PCM_24000HZ_MONO_16BIT,
                     "volume": self.config.volume,
                     "speech_rate": self.config.speech_rate,
@@ -128,7 +181,7 @@ class AliyunCosyVoiceTTS:
                 LOGGER.info(
                     "Aliyun CosyVoice stream opening: model=%s voice=%s url=%s",
                     self.config.model,
-                    self.config.voice,
+                    voice,
                     self.config.websocket_url or "dashscope-default",
                 )
                 synthesizer = SpeechSynthesizer(**kwargs)
@@ -150,13 +203,17 @@ class AliyunCosyVoiceTTS:
                 else:
                     put_threadsafe(None)
             except BaseException as exc:  # noqa: BLE001
-                put_threadsafe(exc)
+                if first_audio:
+                    put_threadsafe(
+                        AliyunCosyVoiceRetryableError(f"Aliyun CosyVoice TTS error before audio: {exc}")
+                    )
+                else:
+                    put_threadsafe(exc)
 
-        async def feed_text() -> None:
+        def feed_chunks() -> None:
             try:
-                async for chunk in text:
-                    if chunk and chunk.strip():
-                        text_queue.put(chunk)
+                for chunk in chunks:
+                    text_queue.put(chunk)
             except BaseException as exc:  # noqa: BLE001
                 put_threadsafe(exc)
             finally:
@@ -165,7 +222,8 @@ class AliyunCosyVoiceTTS:
         first_audio = True
         worker = threading.Thread(target=synthesize_worker, daemon=True)
         worker.start()
-        producer = asyncio.create_task(feed_text())
+        producer = threading.Thread(target=feed_chunks, daemon=True)
+        producer.start()
 
         try:
             while True:
@@ -174,11 +232,14 @@ class AliyunCosyVoiceTTS:
                     break
                 if isinstance(item, BaseException):
                     raise item
+                if first_audio:
+                    first_audio = False
                 yield self._pcm_to_frame(rtc, item)
         finally:
-            if not producer.done():
-                producer.cancel()
+            if producer.is_alive():
                 text_queue.put(None)
+            producer.join(timeout=3)
+            worker.join(timeout=3)
 
     def _pcm_to_frame(self, rtc, data: bytes):
         samples_per_channel = len(data) // 2
@@ -188,6 +249,30 @@ class AliyunCosyVoiceTTS:
             num_channels=self.num_channels,
             samples_per_channel=samples_per_channel,
         )
+
+    def _select_voice(self) -> str:
+        pool = tuple(item for item in self.config.voice_pool if item)
+        if self.config.random_voice_enabled and len(pool) > 1:
+            return random.choice(pool)
+        if pool:
+            return pool[0]
+        return self.config.voice
+
+    def _voice_candidates(self) -> list[str]:
+        pool = [item for item in self.config.voice_pool if item and item not in self._bad_voice_ids]
+        if self.config.voice and self.config.voice not in pool and self.config.voice not in self._bad_voice_ids:
+            pool.append(self.config.voice)
+        if SAFE_VOICE not in pool and SAFE_VOICE not in self._bad_voice_ids:
+            pool.append(SAFE_VOICE)
+        if not pool:
+            pool = [self.config.voice or SAFE_VOICE]
+        if self.config.random_voice_enabled and len(pool) > 1:
+            random.shuffle(pool)
+        return pool
+
+
+class AliyunCosyVoiceRetryableError(RuntimeError):
+    pass
 
 
 def config_from_env(api_key: str | None = None) -> AliyunCosyVoiceConfig:
@@ -234,6 +319,10 @@ def config_from_env(api_key: str | None = None) -> AliyunCosyVoiceConfig:
         clone_target_model=os.environ.get("TANYUE_COSYVOICE_CLONE_TARGET_MODEL", model),
         clone_audio_url=os.environ.get("TANYUE_COSYVOICE_CLONE_AUDIO_URL"),
         clone_max_prompt_audio_length=float(os.environ.get("TANYUE_COSYVOICE_CLONE_MAX_SECONDS", "20")),
+        voice_registry_path=resolve_project_path(
+            os.environ.get("TANYUE_COSYVOICE_VOICE_REGISTRY", DEFAULT_VOICE_REGISTRY)
+        ),
+        random_voice_enabled=env_bool("TANYUE_COSYVOICE_RANDOM_VOICE_ENABLED", True),
     )
 
 
@@ -264,8 +353,12 @@ def resolve_project_path(value: str | os.PathLike[str] | None) -> Path:
 
 
 def ensure_cosyvoice_clone(config: AliyunCosyVoiceConfig, *, force: bool = False) -> str:
+    return ensure_cosyvoice_voices(config, force=force)[0]
+
+
+def ensure_cosyvoice_voices(config: AliyunCosyVoiceConfig, *, force: bool = False) -> list[str]:
     if not config.clone_enabled:
-        return config.voice
+        return [config.voice]
 
     if config.clone_target_model and config.clone_target_model != config.model:
         raise RuntimeError(
@@ -273,12 +366,20 @@ def ensure_cosyvoice_clone(config: AliyunCosyVoiceConfig, *, force: bool = False
             f"target_model={config.clone_target_model}, model={config.model}"
         )
 
+    registry_path = config.voice_registry_path
+    if registry_path and registry_path.exists() and not force:
+        entries = load_voice_registry(registry_path)
+        voice_ids = [item["registered_voice_id"] for item in entries if item.get("registered_voice_id")]
+        if voice_ids:
+            LOGGER.info("Using Aliyun cloned voice registry=%s count=%d", registry_path, len(voice_ids))
+            return voice_ids
+
     cache_path = config.cloned_voice_cache_path
     if cache_path and cache_path.exists() and not force:
         voice_id = cache_path.read_text(encoding="utf-8").strip()
         if voice_id:
             LOGGER.info("Using cached Aliyun cloned voice_id=%s", voice_id)
-            return voice_id
+            return [voice_id]
 
     audio_url = config.clone_audio_url
     if not audio_url:
@@ -305,7 +406,58 @@ def ensure_cosyvoice_clone(config: AliyunCosyVoiceConfig, *, force: bool = False
     if cache_path:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_text(f"{voice_id}\n", encoding="utf-8")
-    return voice_id
+    return [voice_id]
+
+
+def load_voice_registry(path: Path) -> list[dict[str, str]]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    voices = payload.get("voices", [])
+    if not isinstance(voices, list):
+        raise RuntimeError(f"Invalid CosyVoice registry: {path}")
+    result = []
+    for item in voices:
+        if not isinstance(item, dict):
+            continue
+        key = str(item.get("key") or "").strip()
+        voice_id = str(item.get("registered_voice_id") or "").strip()
+        source_file_name = str(item.get("source_file_name") or "").strip()
+        display_name = str(item.get("display_name") or key).strip()
+        if key:
+            result.append(
+                {
+                    "key": key,
+                    "registered_voice_id": voice_id,
+                    "source_file_name": source_file_name,
+                    "display_name": display_name,
+                }
+            )
+    return result
+
+
+def save_voice_registry(path: Path, entries: list[dict[str, str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"version": 1, "voices": entries}
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def update_voice_registry_entry(path: Path, key: str, voice_id: str, source_file_name: str = "") -> None:
+    entries = load_voice_registry(path) if path.exists() else []
+    for item in entries:
+        if item["key"] == key:
+            item["registered_voice_id"] = voice_id
+            if source_file_name:
+                item["source_file_name"] = source_file_name
+            save_voice_registry(path, entries)
+            return
+    entries.append(
+        {
+            "key": key,
+            "registered_voice_id": voice_id,
+            "source_file_name": source_file_name,
+            "display_name": key,
+        }
+    )
+    save_voice_registry(path, entries)
 
 
 def normalize_clone_prefix(prefix: str) -> str:

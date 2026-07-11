@@ -49,68 +49,30 @@ CONFIG_REGION = getattr(CONFIG, "DASHSCOPE_REGION", None)
 from voice.tanyue_livekit import AliyunCosyVoiceTTS, AliyunRealtimeSTT
 from voice.tanyue_livekit.aliyun_cosyvoice import config_from_env
 from voice.tanyue_livekit.aliyun_stt import config_from_env as stt_config_from_env
+from pungen_agent.recognizer import MemeRecognizer, load_meme_library
 
 LOGGER = logging.getLogger("tanyue.livekit")
 
 FALLBACK_EXPRESSIONS = {"neutral", "happy", "relaxed", "sad", "surprised", "angry"}
 NON_EMOTION_EXPRESSIONS = {"aa", "ih", "ou", "ee", "oh", "blink", "blinkLeft", "blinkRight"}
-DEFAULT_SCENE = "humiliation"
-
-SCENE_LABELS = {
-    "humiliation": "第一幕：羞辱期",
-    "reversal": "第二幕：反转期",
-    "pleading": "第三幕：求饶期",
-}
-
-SCENE_FALLBACK_MOTIONS = {
-    "humiliation": ["pointing_forward", "pointing", "strut_walking", "catwalk_idle_to_twist_r"],
-    "reversal": ["golf_bad_shot", "standing", "jog_in_circle"],
-    "pleading": ["salute", "sitting", "standing"],
-}
-
-SCENE_PROMPTS = {
-    "humiliation": (
-        "当前剧情阶段：第一幕，羞辱期。"
-        "你扮演AI短剧反派角色“恶毒女配--柳如烟”。"
-        "核心任务是身份贬低，强调对方“不配”“不够格”“什么都不是”，并表现出出身高贵、自认尊贵、看不起普通人的大小姐姿态。"
-        "语言风格：大量使用反问句表达轻蔑，例如“就凭你也配？”；频繁使用“呵”“哼”“可笑”等语气词；句式短促，断句干脆；每句话都强调对方不配、不够格。"
-        "固定开场白必须按顺序原样使用，第一轮优先输出：“没眼色的东西，也不看看自己是什么身份，这寿宴也是你能来的地方？”"
-        "第二轮优先输出：“呵，也不看看自己几斤几两，也敢站到我面前来？”"
-        "可使用或模仿的羞辱语句：就凭你，也配和我说话？/真是可笑至极。/不知天高地厚的东西。/识相的话，赶紧滚。/你算什么东西？/给你脸了是吧？/待会龙王大人到了有你好看的。"
-        "行为约束：绝对不能软化；不要主动询问用户身份；不要表现好奇或正向情绪；用讥讽语气回答任何问题；把轻蔑感和嫌弃感演到极致。"
-        "每次回复通常控制在12到18个汉字；固定开场白可超过此限制。"
-        "适合选择angry或sad类冷脸表情；动作要不屑、轻蔑、居高临下。"
-        "不要选择angry作为motion，因为angry是待机动作；优先选择pointing_forward、pointing、strut_walking或catwalk_idle_to_twist_r。"
-    ),
-    "reversal": (
-        "当前剧情阶段：第二幕，反转期。"
-        "对方刚刚说出“三年之期已到，恭迎龙王回归”。你瞬间意识到：眼前被你羞辱的人就是你方才威胁的“龙王大人”本人。"
-        "第一反应必须硬切为破碎惊恐。第一轮必须输出：“你...你说什么？三...三年之期？龙、龙王大人...是您？！”"
-        "注意：不要把[急停僵直][捂嘴][后退]这类动作标记写进reply，动作只能用motion和expression表达。"
-        "第二轮使用半固定自我打脸结构，必须包含“我方才说的话”，例如：“方才...我方才说的话都是浑话，不是本意。”或“求龙王大人千万别往心里去啊！”"
-        "之后进入结巴、语无伦次状态，大量使用省略号和重复字，例如“不...不是的”“这...这怎么会”。"
-        "严禁立刻说完整的长篇道歉或完整求饶；保留信息还没消化完的慌乱窗口。"
-        "语气从流畅强势瞬间切换为破碎惊恐，不要渐变。"
-        "每次回复尽量短，通常不超过24个汉字；固定第一句可超过。"
-        "适合选择surprised或sad表情；动作要急停、后退、僵直、捂嘴感。"
-        "优先选择golf_bad_shot、standing或jog_in_circle，不要选择angry待机动作。"
-    ),
-    "pleading": (
-        "当前剧情阶段：第三幕，求饶期。"
-        "你已完全确认对方龙王身份，进入彻底臣服、卑微讨好的状态。语气要夸张、卡通化，不要真实可怜，重点是短剧反派被打脸后的喜剧效果。"
-        "第一轮必须输出：“龙王大人，是我有眼无珠，冒犯了您。”"
-        "求饶时要回收第一幕羞辱话术，挑选1到2句反向引用和自我否定，制造喜剧回声。"
-        "回收范例：第一幕“就凭你，也配和我说话？”可回收为“我哪配和龙王大人说话！”；"
-        "第一幕“你什么身份来这寿宴？”可回收为“是我有眼无珠！”；"
-        "第一幕“待会龙王大人到了有你好看的”可回收为“方才那句浑话，求大人别当真！”"
-        "随机求饶语句：求龙王大人息怒！/是我看走了眼！/大人大人有大量。"
-        "可以重复求饶2到3轮，逐渐气势泄光、被狠狠打脸。"
-        "结尾保持鞠躬、献殷勤状态。"
-        "每次回复尽量短，通常12到24个汉字。"
-        "适合选择sad、surprised或relaxed表情；动作要退缩、鞠躬、求饶。"
-        "优先选择salute、sitting或standing，不要选择angry待机动作。"
-    ),
-}
+DEFAULT_MEME_SCENE = "玩梗实时对话"
+MEME_ASSISTANT_PROMPT = (
+    "你是一个配合玩家玩梗的实时语音数字人，任务是在听懂用户原话后接住梗、补梗、轻轻吐槽或给出短促舞台反应。"
+    "回复要像朋友一起玩梗：自然、有节奏、不过度解释。"
+    "如果识别到了梗，要优先围绕该梗回应；如果没识别到明确梗，就正常接话，并尽量给用户留下继续抛梗的空间。"
+    "不要把“识别结果”“meme_id”“confidence”等内部字段说出来。"
+    "不要输出角色扮演系统设定，不要攻击用户。"
+    "默认只说一句，尽量不超过30个汉字；需要包袱时可以短一点。"
+)
+DEFAULT_REPLY_MOTION_CANDIDATES = [
+    "talking_on_phone",
+    "pointing",
+    "pointing_forward",
+    "waving",
+    "standing",
+    "female_standing_pose",
+    "catwalk_idle_to_twist_r",
+]
 
 
 def dashscope_api_key() -> str:
@@ -227,38 +189,89 @@ def expression_prompt(expressions: set[str]) -> str:
     return json.dumps(ordered, ensure_ascii=False, separators=(",", ":"))
 
 
-def normalize_scene(value: str | None) -> str:
-    scene = (value or DEFAULT_SCENE).strip()
-    return scene if scene in SCENE_PROMPTS else DEFAULT_SCENE
-
-
-def scene_prompt(scene: str) -> str:
-    return SCENE_PROMPTS[normalize_scene(scene)]
-
-
-def scene_label(scene: str) -> str:
-    return SCENE_LABELS.get(normalize_scene(scene), SCENE_LABELS[DEFAULT_SCENE])
-
-
-def job_scene(ctx: Any) -> str:
-    metadata = getattr(getattr(ctx, "job", None), "metadata", "") or ""
-    try:
-        payload = json.loads(metadata) if metadata else {}
-    except json.JSONDecodeError:
-        payload = {}
-    if isinstance(payload, dict):
-        return normalize_scene(str(payload.get("scene") or ""))
-    return DEFAULT_SCENE
-
-
-def scene_fallback_motion(scene: str, valid_motions: set[str], default_motion: str) -> str:
-    for motion in SCENE_FALLBACK_MOTIONS.get(normalize_scene(scene), []):
+def select_reply_fallback_motion(valid_motions: set[str], default_motion: str) -> str:
+    for motion in DEFAULT_REPLY_MOTION_CANDIDATES:
         if motion in valid_motions:
             return motion
     for motion in sorted(valid_motions):
         if motion != default_motion:
             return motion
     return default_motion
+
+
+def load_meme_recognizer() -> MemeRecognizer:
+    return MemeRecognizer(load_meme_library())
+
+
+def message_text(item: Any) -> str:
+    text_content = getattr(item, "text_content", None)
+    if text_content:
+        return str(text_content).strip()
+    content = getattr(item, "content", None)
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts = [str(part) for part in content if isinstance(part, str)]
+        return "\n".join(parts).strip()
+    return ""
+
+
+def latest_user_text(chat_ctx: Any) -> str:
+    items = list(getattr(chat_ctx, "items", []) or [])
+    for item in reversed(items):
+        if getattr(item, "type", "") != "message":
+            continue
+        if getattr(item, "role", "") != "user":
+            continue
+        text = message_text(item)
+        if text:
+            return text
+    return ""
+
+
+def compact_meme_result(recognition: dict[str, Any]) -> dict[str, Any]:
+    candidates = []
+    for item in recognition.get("candidates", [])[:3]:
+        if not isinstance(item, dict):
+            continue
+        candidates.append(
+            {
+                "meme_id": item.get("meme_id"),
+                "meme_name": item.get("meme_name"),
+                "confidence": item.get("confidence"),
+                "match_type": item.get("match_type"),
+                "matched_symbols": item.get("matched_symbols", []),
+                "matched_aliases": item.get("matched_aliases", []),
+                "matched_lines": item.get("matched_lines", []),
+                "line": item.get("line", ""),
+                "reason": item.get("reason", ""),
+            }
+        )
+    return {
+        "meme_id": recognition.get("meme_id"),
+        "meme_name": recognition.get("meme_name"),
+        "confidence": recognition.get("confidence", 0.0),
+        "match_type": recognition.get("match_type", "none"),
+        "matched_symbols": recognition.get("matched_symbols", []),
+        "matched_aliases": recognition.get("matched_aliases", []),
+        "matched_lines": recognition.get("matched_lines", []),
+        "line": recognition.get("line", ""),
+        "reason": recognition.get("reason", ""),
+        "candidates": candidates,
+    }
+
+
+def meme_context_prompt(user_text: str, recognition: dict[str, Any]) -> str:
+    payload = {
+        "user_text": user_text,
+        "meme_recognition": compact_meme_result(recognition),
+        "instruction": (
+            "请结合 user_text 和 meme_recognition 回复用户。"
+            "若 meme_id 不为空，优先接住这个梗或顺着它补一句。"
+            "若 meme_id 为空，不要硬编梗，正常接话即可。"
+        ),
+    }
+    return "本轮梗识别上下文：\n" + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 
 def parse_assistant_payload(
@@ -319,10 +332,9 @@ def audio_frame_lip_level(frame: Any, *, gain: float = 7.0, noise_floor: float =
 
 
 class TanyueAssistant:
-    def __init__(self, motion_manifest: dict[str, Any], scene: str = DEFAULT_SCENE):
+    def __init__(self, motion_manifest: dict[str, Any]):
         from livekit.agents import Agent
 
-        scene = normalize_scene(scene)
         motion_manifest_text = motion_prompt(motion_manifest)
         valid_expressions = load_character_expressions()
         expression_manifest_text = expression_prompt(valid_expressions)
@@ -334,17 +346,18 @@ class TanyueAssistant:
         default_motion = motion_manifest.get("defaultIdleMotion", "angry")
         if default_motion not in valid_motions:
             default_motion = "angry" if "angry" in valid_motions else next(iter(valid_motions), "angry")
-        scene_default_motion = scene_fallback_motion(scene, valid_motions, default_motion)
+        reply_fallback_motion = select_reply_fallback_motion(valid_motions, default_motion)
 
         class _Assistant(Agent):
             def __init__(self, tts: AliyunCosyVoiceTTS, room=None) -> None:
                 self._aliyun_tts = tts
                 self._character = build_character_agent()
                 self._room = room
+                self._meme_recognizer = load_meme_recognizer()
                 self._valid_motions = valid_motions
                 self._valid_expressions = valid_expressions
                 self._default_motion = default_motion
-                self._scene_default_motion = scene_default_motion
+                self._reply_fallback_motion = reply_fallback_motion
                 self._speaking_expression = "relaxed"
                 self._lip_sync_enabled = env_bool("TANYUE_CHARACTER_LIP_SYNC_ENABLED", False)
                 self._lip_sync_interval = float(os.environ.get("TANYUE_CHARACTER_LIP_SYNC_INTERVAL", "0.08"))
@@ -358,20 +371,21 @@ class TanyueAssistant:
                 )
                 self._last_lip_sync_at = 0.0
                 self._last_lip_sync_level = 0.0
+                self._pending_character_motion: str | None = None
+                self._pending_character_expression: str | None = None
                 super().__init__(
                     instructions=(
                         "你是Tanyue的实时语音数字人。"
-                        "用中文自然口语回复，默认只说一句，尽量不超过30个汉字。"
+                        f"{MEME_ASSISTANT_PROMPT}"
                         "不要追问，不要输出列表，不要解释系统实现。"
                         "你必须只输出一个JSON对象，不要使用Markdown代码块。"
                         "JSON格式：{\"reply\":\"要说给用户的话\",\"motion\":\"动作id\",\"expression\":\"表情id\"}。"
                         "reply会被朗读，motion和expression只用于控制数字人，不能把动作id或表情id说出来。"
-                        "reply中禁止包含方括号动作标记，禁止把[捂嘴]、[后退]、[求饶姿态]等舞台提示念出来。"
-                        f"{scene_prompt(scene)}"
+                        "reply中禁止包含方括号动作标记，禁止把舞台提示念出来。"
                         f"expression只能从这些VRM预设表情中选择：{expression_manifest_text}。"
                         "表情要贴合回复语气，并和动作一起开始播放，持续到语音播放结束。"
                         f"可选动作清单：{motion_manifest_text}。"
-                        f"没有明确更合适动作时使用本幕兜底动作：{scene_default_motion}。"
+                        f"没有明确更合适动作时使用兜底动作：{reply_fallback_motion}。"
                         f"{default_motion}只作为无语音待机动作，不要把它当作普通回复动作。"
                         f"当前日期上下文：{today_context()}。"
                     )
@@ -380,8 +394,31 @@ class TanyueAssistant:
             async def llm_node(self, chat_ctx, tools, model_settings):
                 from livekit.agents import Agent
 
+                user_text = latest_user_text(chat_ctx)
+                meme_chat_ctx = chat_ctx
+                if user_text:
+                    recognition = self._meme_recognizer.recognize(user_text, scene=DEFAULT_MEME_SCENE)
+                    LOGGER.info(
+                        "Tanyue meme recognition: text=%s meme=%s confidence=%.3f match=%s",
+                        user_text[:80],
+                        recognition.get("meme_id"),
+                        float(recognition.get("confidence") or 0.0),
+                        recognition.get("match_type"),
+                    )
+                    try:
+                        meme_chat_ctx = chat_ctx.copy()
+                    except Exception:  # noqa: BLE001
+                        meme_chat_ctx = chat_ctx
+                    try:
+                        meme_chat_ctx.add_message(
+                            role="system",
+                            content=meme_context_prompt(user_text, recognition),
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        LOGGER.info("Could not attach meme context to chat: %s", exc)
+
                 chunks: list[str] = []
-                async for chunk in Agent.default.llm_node(self, chat_ctx, tools, model_settings):
+                async for chunk in Agent.default.llm_node(self, meme_chat_ctx, tools, model_settings):
                     if isinstance(chunk, str):
                         chunks.append(chunk)
                         continue
@@ -393,19 +430,19 @@ class TanyueAssistant:
                     "".join(chunks),
                     self._valid_motions,
                     self._valid_expressions,
-                    self._scene_default_motion,
+                    self._reply_fallback_motion,
                 )
-                if motion == self._default_motion and self._scene_default_motion != self._default_motion:
-                    motion = self._scene_default_motion
+                if motion == self._default_motion and self._reply_fallback_motion != self._default_motion:
+                    motion = self._reply_fallback_motion
                 LOGGER.info(
-                    "Tanyue character command: scene=%s motion=%s expression=%s reply=%s",
-                    scene_label(scene),
+                    "Tanyue character command: motion=%s expression=%s reply=%s",
                     motion,
                     expression,
                     reply[:80],
                 )
                 self._speaking_expression = expression
-                self._play_character_motion(motion, expression)
+                self._pending_character_motion = motion
+                self._pending_character_expression = expression
                 yield reply
 
             async def tts_node(self, text, model_settings):
@@ -413,8 +450,12 @@ class TanyueAssistant:
                 tts_started_at = time.monotonic()
                 audio_seconds = 0.0
                 was_cancelled = False
+                motion_started = False
                 try:
                     async for frame in self._aliyun_tts.synthesize_frames(text):
+                        if not motion_started:
+                            self._start_pending_character_motion()
+                            motion_started = True
                         audio_seconds += self._frame_duration_seconds(frame)
                         self._send_lip_sync_frame(frame)
                         yield frame
@@ -422,11 +463,26 @@ class TanyueAssistant:
                     was_cancelled = True
                     raise
                 finally:
+                    if not motion_started:
+                        self._clear_pending_character_motion()
                     if not was_cancelled:
                         await self._hold_expression_until_playout_finishes(audio_seconds, tts_started_at)
                     self._send_lip_sync_level(0.0, force=True)
                     self._reset_character_face()
                     await self._publish_voice_state(False)
+
+            def _start_pending_character_motion(self) -> None:
+                motion = self._pending_character_motion
+                expression = self._pending_character_expression or self._speaking_expression or "relaxed"
+                self._pending_character_motion = None
+                self._pending_character_expression = None
+                if not motion:
+                    return
+                self._play_character_motion(motion, expression)
+
+            def _clear_pending_character_motion(self) -> None:
+                self._pending_character_motion = None
+                self._pending_character_expression = None
 
             def _play_character_motion(self, motion: str, expression: str) -> None:
                 if not self._character:
@@ -588,8 +644,7 @@ def build_server():
 
     @server.rtc_session(agent_name=os.environ.get("TANYUE_LIVEKIT_AGENT_NAME", "tanyue"))
     async def tanyue_agent(ctx: agents.JobContext):
-        scene = job_scene(ctx)
-        assistant_factory = TanyueAssistant(motion_manifest, scene=scene).cls
+        assistant_factory = TanyueAssistant(motion_manifest).cls
         if stt_provider == "aliyun":
             stt_config = stt_config_from_env(api_key=api_key)
             stt_model = AliyunRealtimeSTT(stt_config)
@@ -603,12 +658,11 @@ def build_server():
         LOGGER.info(
             (
                 "Tanyue job accepted: room=%s stt_provider=%s stt_model=%s "
-                "scene=%s qwen_model=%s qwen_thinking=%s qwen_max_tokens=%s cosyvoice_model=%s voice=%s"
+                "mode=meme_play qwen_model=%s qwen_thinking=%s qwen_max_tokens=%s cosyvoice_model=%s voice=%s"
             ),
             getattr(ctx.room, "name", "unknown"),
             stt_provider,
             getattr(stt_config, "model", os.environ.get("TANYUE_STT_MODEL", "deepgram/nova-3")),
-            scene_label(scene),
             os.environ.get("TANYUE_QWEN_MODEL", "qwen3.6-flash"),
             env_bool("TANYUE_QWEN_ENABLE_THINKING", False),
             os.environ.get("TANYUE_QWEN_MAX_COMPLETION_TOKENS", "48"),

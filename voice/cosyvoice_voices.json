@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "voices": [
+    {
+      "key": "dingzhen",
+      "registered_voice_id": "cosyvoice-v3.5-plus-dingzhen-82591adf0b7d4320a62f582b52b11b5f",
+      "source_file_name": "dingzhen.wav",
+      "display_name": "Dingzhen"
+    },
+    {
+      "key": "kobe",
+      "registered_voice_id": "cosyvoice-v3.5-plus-kobe-b414afd6e3bf4cf8ba9bbbf64efeca2f",
+      "source_file_name": "kobe.wav",
+      "display_name": "Kobe"
+    },
+    {
+      "key": "doubao",
+      "registered_voice_id": "cosyvoice-v3.5-plus-doubao-4107ce73752a4e1abef2ef9176e192c4",
+      "source_file_name": "doubao.wav",
+      "display_name": "Doubao"
+    },
+    {
+      "key": "trump",
+      "registered_voice_id": "cosyvoice-v3.5-plus-trump-67a0db318a004b3798708ff3295c1abd",
+      "source_file_name": "trump.wav",
+      "display_name": "Trump"
+    }
+  ]
+}
