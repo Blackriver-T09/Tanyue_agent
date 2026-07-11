@@ -79,6 +79,8 @@ class AliyunCosyVoiceTTS:
         self.sample_rate = config.sample_rate
         self._bad_voice_ids: set[str] = set()
         self._voice_key_by_id: dict[str, str] = {}
+        self._voice_id_by_key: dict[str, str] = {}
+        self._forced_voice_key: str | None = None
         self._selected_voice_id: str | None = None
         self._selected_voice_key: str | None = None
         self._refresh_voice_lookup()
@@ -91,6 +93,26 @@ class AliyunCosyVoiceTTS:
         if len(voice_ids) > 1:
             LOGGER.info("Using Aliyun cloned voice pool: %s", ", ".join(voice_ids))
         return voice_id
+
+    def set_voice_key(self, voice_key: str | None) -> None:
+        """Force the next synthesis request to use one registered voice key."""
+        normalized = str(voice_key or "").strip().lower()
+        self._forced_voice_key = normalized or None
+        if self._forced_voice_key:
+            voice_id = self._voice_id_by_key.get(self._forced_voice_key)
+            if not voice_id:
+                raise ValueError(
+                    f"Unknown CosyVoice key {self._forced_voice_key!r}; "
+                    "check voice/cosyvoice_voices.json"
+                )
+            LOGGER.info(
+                "Aliyun CosyVoice forced voice: key=%s voice_id=%s",
+                self._forced_voice_key,
+                voice_id,
+            )
+
+    def clear_voice_key(self) -> None:
+        self._forced_voice_key = None
 
     async def synthesize_frames(self, text: AsyncIterable[str]) -> AsyncIterator["rtc.AudioFrame"]:
         from livekit import rtc
@@ -477,6 +499,7 @@ class AliyunCosyVoiceTTS:
 
     def _refresh_voice_lookup(self, *, force: bool = False) -> None:
         self._voice_key_by_id = {}
+        self._voice_id_by_key = {}
         registry_path = self.config.voice_registry_path
         if registry_path and registry_path.exists():
             try:
@@ -485,6 +508,7 @@ class AliyunCosyVoiceTTS:
                     key = str(item.get("key") or "").strip()
                     if voice_id and key:
                         self._voice_key_by_id[voice_id] = key
+                        self._voice_id_by_key[key] = voice_id
             except Exception as exc:  # noqa: BLE001
                 LOGGER.debug("Could not refresh voice lookup: %s", exc)
 
@@ -492,6 +516,18 @@ class AliyunCosyVoiceTTS:
         return self._voice_key_by_id.get(voice_id)
 
     def _voice_candidates(self) -> list[tuple[str, str | None]]:
+        if self._forced_voice_key:
+            voice_id = self._voice_id_by_key.get(self._forced_voice_key)
+            if not voice_id:
+                raise RuntimeError(
+                    f"Forced CosyVoice key {self._forced_voice_key!r} is not registered"
+                )
+            if voice_id in self._bad_voice_ids:
+                raise RuntimeError(
+                    f"Forced CosyVoice voice {self._forced_voice_key!r} failed earlier in this session"
+                )
+            return [(voice_id, self._forced_voice_key)]
+
         pool = [item for item in self.config.voice_pool if item and item not in self._bad_voice_ids]
         if self.config.voice and self.config.voice not in pool and self.config.voice not in self._bad_voice_ids:
             pool.append(self.config.voice)

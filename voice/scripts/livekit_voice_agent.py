@@ -238,6 +238,7 @@ def compact_meme_result(recognition: dict[str, Any]) -> dict[str, Any]:
             {
                 "meme_id": item.get("meme_id"),
                 "meme_name": item.get("meme_name"),
+                "character_id": item.get("character_id"),
                 "confidence": item.get("confidence"),
                 "match_type": item.get("match_type"),
                 "matched_symbols": item.get("matched_symbols", []),
@@ -250,6 +251,7 @@ def compact_meme_result(recognition: dict[str, Any]) -> dict[str, Any]:
     return {
         "meme_id": recognition.get("meme_id"),
         "meme_name": recognition.get("meme_name"),
+        "character_id": recognition.get("character_id", ""),
         "confidence": recognition.get("confidence", 0.0),
         "match_type": recognition.get("match_type", "none"),
         "matched_symbols": recognition.get("matched_symbols", []),
@@ -374,6 +376,7 @@ class TanyueAssistant:
                 self._pending_character_motion: str | None = None
                 self._pending_character_expression: str | None = None
                 self._pending_reply_text: str = ""
+                self._pending_voice_key: str | None = None
                 self._voice_model_active = False
                 super().__init__(
                     instructions=(
@@ -401,12 +404,15 @@ class TanyueAssistant:
                 if user_text:
                     recognition = self._meme_recognizer.recognize(user_text, scene=DEFAULT_MEME_SCENE)
                     LOGGER.info(
-                        "Tanyue meme recognition: text=%s meme=%s confidence=%.3f match=%s",
+                        "Tanyue meme recognition: text=%s meme=%s character=%s confidence=%.3f match=%s",
                         user_text[:80],
                         recognition.get("meme_id"),
+                        recognition.get("character_id") or "none",
                         float(recognition.get("confidence") or 0.0),
                         recognition.get("match_type"),
                     )
+                    character_id = str(recognition.get("character_id") or "").strip().lower()
+                    self._pending_voice_key = character_id or None
                     try:
                         meme_chat_ctx = chat_ctx.copy()
                     except Exception:  # noqa: BLE001
@@ -446,6 +452,7 @@ class TanyueAssistant:
                 self._pending_character_motion = motion
                 self._pending_character_expression = expression
                 self._pending_reply_text = reply
+                self._aliyun_tts.set_voice_key(self._pending_voice_key)
                 yield reply
 
             async def tts_node(self, text, model_settings):
@@ -482,6 +489,8 @@ class TanyueAssistant:
                     self._reset_character_face()
                     self._restore_character_model()
                     self._play_character_idle()
+                    self._aliyun_tts.clear_voice_key()
+                    self._pending_voice_key = None
                     await self._publish_voice_state(False)
 
             def _start_pending_character_motion(self, model_key: str | None = None) -> None:

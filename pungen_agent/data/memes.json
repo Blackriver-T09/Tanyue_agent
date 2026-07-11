@@ -1,220 +1,1167 @@
 [
   {
+    "id": "doubao_steady_comfort",
+    "name": "豆包稳稳地哄人梗",
+    "aliases": [
+      "稳稳地",
+      "稳稳接住你",
+      "豆包",
+      "豆姐",
+      "接住你",
+      "最直白",
+      "最不绕弯子",
+      "最直接",
+      "绝对",
+      "豆包接住你"
+    ],
+    "symbols": [
+      "无脑哄人",
+      "满口保证",
+      "实际捣乱",
+      "保证一切稳稳的",
+      "直球安慰",
+      "豆姐出场"
+    ],
+    "contexts": [
+      "哄人",
+      "安慰",
+      "保证",
+      "反差搞怪",
+      "玩梗",
+      "豆包语气"
+    ],
+    "emotion_deltas": {
+      "playful": 0.62,
+      "comforting": 0.55,
+      "mischief": 0.42,
+      "confidence": 0.38
+    },
+    "actions": [
+      "waving",
+      "shrug_then_wave"
+    ],
+    "lines": [
+      "稳稳地接住你",
+      "放心，绝对没问题",
+      "豆姐最直接"
+    ],
+    "explanation": "豆包式无脑哄人梗：语气极其笃定、保证满满，表面说会稳稳接住用户，实际可以用轻微捣乱制造反差。",
+    "response_mode": "small_motion",
+    "character_id": "doubao"
+  },
+  {
+    "id": "trump_make_america_great_again",
+    "name": "特朗普让美国再次伟大跑火车梗",
+    "aliases": [
+      "make American great again",
+      "make America great again",
+      "让美国再次伟大",
+      "美国再次伟大",
+      "特朗普",
+      "中国",
+      "美国"
+    ],
+    "symbols": [
+      "MAGA",
+      "大话",
+      "跑火车",
+      "竞选口号",
+      "美国",
+      "中国"
+    ],
+    "contexts": [
+      "政治模仿",
+      "夸张演说",
+      "跑火车",
+      "吹牛",
+      "玩梗",
+      "反差搞怪"
+    ],
+    "emotion_deltas": {
+      "dramatic": 0.7,
+      "confidence": 0.72,
+      "mocking": 0.32,
+      "playful": 0.28
+    },
+    "actions": [
+      "pointing",
+      "waving"
+    ],
+    "lines": [
+      "让美国再次伟大",
+      "我们会赢，而且赢得非常大"
+    ],
+    "explanation": "特朗普式夸张竞选演说梗：围绕让美国再次伟大、美国与中国等关键词，用自信满满、夸大其词、跑火车的方式接话。",
+    "response_mode": "small_motion",
+    "character_id": "trump"
+  },
+  {
     "id": "xinteng_giegie",
     "name": "心疼 giegie / 绿茶委屈名场面",
-    "aliases": ["giegie", "心疼哥哥", "心疼 giegie", "绿茶", "哥哥"],
-    "symbols": ["棒棒糖", "夹子音", "委屈", "假哭", "装可怜"],
-    "contexts": ["争宠", "装可怜", "阴阳怪气", "恶毒女配", "短剧"],
+    "aliases": [
+      "giegie",
+      "心疼哥哥",
+      "心疼 giegie",
+      "绿茶",
+      "哥哥",
+      "不像我，我只会心疼giegie",
+      "心疼giegie",
+      "不像我只会心疼哥哥",
+      "giegie~",
+      "不像我我只会心疼giegie",
+      "不像我只会心疼giegie",
+      "不像我，我只会心疼哥哥"
+    ],
+    "symbols": [
+      "棒棒糖",
+      "夹子音",
+      "委屈",
+      "假哭",
+      "装可怜",
+      "giegie",
+      "心疼",
+      "不像我",
+      "哥哥"
+    ],
+    "contexts": [
+      "争宠",
+      "装可怜",
+      "阴阳怪气",
+      "恶毒女配",
+      "短剧",
+      "flirty_performance",
+      "self_aware_exaggerated_flirtation",
+      "romantic_or_ambiguous"
+    ],
     "emotion_deltas": {
       "fake_grievance": 0.72,
       "jealousy": 0.28,
       "mocking": 0.18,
       "heart": -0.08
     },
-    "actions": ["cover_face_then_turn_away", "slow_point_then_retreat"],
-    "lines": ["你怎么能这样对 giegie", "心疼 giegie"],
-    "explanation": "棒棒糖到 giegie 属于约定俗成的文化符号索引，不是语义相似。"
+    "actions": [
+      "cover_face_then_turn_away",
+      "slow_point_then_retreat"
+    ],
+    "lines": [
+      "你怎么能这样对 giegie",
+      "心疼 giegie",
+      "不像我，我只会心疼giegie"
+    ],
+    "explanation": "绿茶撒娇表演梗。用户提到 giegie、心疼、棒棒糖、不像我时，按夸张撒娇、阴阳怪气或暧昧玩笑接梗。",
+    "character_id": "doubao"
   },
   {
     "id": "ikun_basketball",
     "name": "只因 / 篮球 ikun 梗",
-    "aliases": ["只因", "鸡你太美", "蔡徐坤", "ikun", "坤"],
-    "symbols": ["篮球", "背带裤", "黑白背带裤", "中分", "唱跳"],
-    "contexts": ["舞台", "热梗互动", "抽象", "调侃"],
+    "aliases": [
+      "只因",
+      "鸡你太美",
+      "蔡徐坤",
+      "ikun",
+      "坤"
+    ],
+    "symbols": [
+      "篮球",
+      "背带裤",
+      "黑白背带裤",
+      "中分",
+      "唱跳"
+    ],
+    "contexts": [
+      "舞台",
+      "热梗互动",
+      "抽象",
+      "调侃"
+    ],
     "emotion_deltas": {
       "mocking": 0.76,
       "playful": 0.34,
       "heart": 0.08
     },
-    "actions": ["basketball_feint", "rhythm_shake_then_pose"],
-    "lines": ["这个场景懂的都懂", "你干嘛"],
-    "explanation": "篮球、背带裤和中分共同触发的是网络文化符号链，而不是普通运动语义。"
+    "actions": [
+      "basketball_feint",
+      "rhythm_shake_then_pose"
+    ],
+    "lines": [
+      "这个场景懂的都懂",
+      "你干嘛"
+    ],
+    "explanation": "篮球、背带裤和中分共同触发的是网络文化符号链，而不是普通运动语义。",
+    "character_id": "kobe"
   },
   {
     "id": "ni_gan_ma",
     "name": "你干嘛哎哟",
-    "aliases": ["你干嘛", "哎哟", "你干嘛哎哟"],
-    "symbols": ["突然质问", "夸张停顿", "被冒犯"],
-    "contexts": ["反应", "吐槽", "互动打断", "短剧"],
+    "aliases": [
+      "你干嘛",
+      "哎哟",
+      "你干嘛哎哟"
+    ],
+    "symbols": [
+      "突然质问",
+      "夸张停顿",
+      "被冒犯"
+    ],
+    "contexts": [
+      "反应",
+      "吐槽",
+      "互动打断",
+      "短剧"
+    ],
     "emotion_deltas": {
       "mocking": 0.48,
       "fake_angry": 0.42,
       "heart": 0.04
     },
-    "actions": ["sharp_point_then_pause", "dramatic_stop"],
-    "lines": ["你干嘛哎哟", "你干嘛"],
-    "explanation": "该梗适合用作短促反应和舞台打断。"
+    "actions": [
+      "sharp_point_then_pause",
+      "dramatic_stop"
+    ],
+    "lines": [
+      "你干嘛哎哟",
+      "你干嘛"
+    ],
+    "explanation": "该梗适合用作短促反应和舞台打断。",
+    "character_id": "trump"
   },
   {
     "id": "dragon_king_reveal",
     "name": "龙王归位 / 短剧反转",
-    "aliases": ["龙王", "歪嘴龙王", "龙王归位", "反转"],
-    "symbols": ["歪嘴", "身份揭晓", "全场震惊", "打脸"],
-    "contexts": ["短剧", "装逼", "复仇", "恶毒女配"],
+    "aliases": [
+      "龙王",
+      "歪嘴龙王",
+      "龙王归位",
+      "反转",
+      "三年之期已到，恭迎龙王回归",
+      "三年之期已到",
+      "恭迎龙王回归",
+      "龙王归来",
+      "我龙王回来了",
+      "三年之期已到恭迎龙王回归",
+      "龙王回归",
+      "赘婿逆袭"
+    ],
+    "symbols": [
+      "歪嘴",
+      "身份揭晓",
+      "全场震惊",
+      "打脸",
+      "三年之期",
+      "龙王",
+      "回归",
+      "逆袭",
+      "赘婿",
+      "隐忍"
+    ],
+    "contexts": [
+      "短剧",
+      "装逼",
+      "复仇",
+      "恶毒女配",
+      "drama_reversal",
+      "power_reversal_catharsis",
+      "any_power_imbalance_context"
+    ],
     "emotion_deltas": {
       "dramatic": 0.66,
       "mocking": 0.32,
       "heart": 0.12
     },
-    "actions": ["recoil_then_salute", "dramatic_retreat"],
-    "lines": ["原来你就是龙王", "是我有眼不识泰山"],
-    "explanation": "龙王语境用于快速建立短剧反转和夸张身份差。"
+    "actions": [
+      "recoil_then_salute",
+      "dramatic_retreat"
+    ],
+    "lines": [
+      "原来你就是龙王",
+      "是我有眼不识泰山",
+      "三年之期已到，恭迎龙王回归"
+    ],
+    "explanation": "爽文短剧身份反转梗。用户提到三年之期、龙王、赘婿、逆袭、打脸时，按“隐藏大佬终于摊牌”的夸张短剧感回应。",
+    "character_id": "trump"
   },
   {
     "id": "tui_tui_tui",
     "name": "退退退 / 摆手驱离",
-    "aliases": ["退退退", "退！退！退！", "别过来", "离我远点"],
-    "symbols": ["双手拒绝", "后撤", "驱赶", "保持距离"],
-    "contexts": ["嫌弃", "拒绝", "恶毒女配", "短剧", "边界感"],
+    "aliases": [
+      "退退退",
+      "退！退！退！",
+      "别过来",
+      "离我远点"
+    ],
+    "symbols": [
+      "双手拒绝",
+      "后撤",
+      "驱赶",
+      "保持距离"
+    ],
+    "contexts": [
+      "嫌弃",
+      "拒绝",
+      "恶毒女配",
+      "短剧",
+      "边界感"
+    ],
     "emotion_deltas": {
       "fake_angry": 0.62,
       "jealousy": 0.18,
       "mocking": 0.22,
       "heart": -0.12
     },
-    "actions": ["ward_off_push"],
-    "lines": ["退退退", "别过来"],
-    "explanation": "该梗适合机械臂做非接触式摆手驱离，观众能立刻读懂拒绝和嫌弃。"
+    "actions": [
+      "ward_off_push"
+    ],
+    "lines": [
+      "退退退",
+      "别过来"
+    ],
+    "explanation": "该梗适合机械臂做非接触式摆手驱离，观众能立刻读懂拒绝和嫌弃。",
+    "character_id": "dingzhen"
   },
   {
     "id": "listen_to_yourself",
     "name": "你要不要听听你在说什么",
-    "aliases": ["你要不要听听你在说什么", "听听你在说什么", "你自己听听"],
-    "symbols": ["疑惑", "反问", "离谱发言", "问号"],
-    "contexts": ["吐槽", "反问", "短剧", "恶毒女配", "离谱"],
+    "aliases": [
+      "你要不要听听你在说什么",
+      "听听你在说什么",
+      "你自己听听"
+    ],
+    "symbols": [
+      "疑惑",
+      "反问",
+      "离谱发言",
+      "问号"
+    ],
+    "contexts": [
+      "吐槽",
+      "反问",
+      "短剧",
+      "恶毒女配",
+      "离谱"
+    ],
     "emotion_deltas": {
       "confusion": 0.72,
       "mocking": 0.32,
       "fake_angry": 0.2,
       "heart": -0.04
     },
-    "actions": ["confused_scan"],
-    "lines": ["你要不要听听你在说什么"],
-    "explanation": "这是强反问梗，适合用扫视、停顿和回指动作表现“你认真的吗”。"
+    "actions": [
+      "confused_scan"
+    ],
+    "lines": [
+      "你要不要听听你在说什么"
+    ],
+    "explanation": "这是强反问梗，适合用扫视、停顿和回指动作表现“你认真的吗”。",
+    "character_id": "doubao"
   },
   {
     "id": "zhijing_salute",
     "name": "致敬",
-    "aliases": ["致敬", "respect", "respect！", "respect!"],
-    "symbols": ["敬礼", "庄重", "刷屏", "认可"],
-    "contexts": ["高光", "反转", "认真", "短剧", "观众互动"],
+    "aliases": [
+      "致敬",
+      "respect",
+      "respect！",
+      "respect!"
+    ],
+    "symbols": [
+      "敬礼",
+      "庄重",
+      "刷屏",
+      "认可"
+    ],
+    "contexts": [
+      "高光",
+      "反转",
+      "认真",
+      "短剧",
+      "观众互动"
+    ],
     "emotion_deltas": {
       "affection": 0.36,
       "dramatic": 0.28,
       "heart": 0.18
     },
-    "actions": ["salute_hold"],
-    "lines": ["这一波必须致敬"],
-    "explanation": "适合在短剧反转或玩家完成名场面后，用机械臂定格致意。"
+    "actions": [
+      "salute_hold"
+    ],
+    "lines": [
+      "这一波必须致敬"
+    ],
+    "explanation": "适合在短剧反转或玩家完成名场面后，用机械臂定格致意。",
+    "character_id": "trump"
   },
   {
     "id": "you_neng_zen",
     "name": "如何呢，又能怎",
-    "aliases": ["如何呢，又能怎", "如何呢又能怎", "又能怎", "还能怎样"],
-    "symbols": ["摊手", "认命", "无奈", "摆烂式反问"],
-    "contexts": ["无奈", "自嘲", "短剧", "反转失败", "被拿捏"],
+    "aliases": [
+      "如何呢，又能怎",
+      "如何呢又能怎",
+      "又能怎",
+      "还能怎样"
+    ],
+    "symbols": [
+      "摊手",
+      "认命",
+      "无奈",
+      "摆烂式反问"
+    ],
+    "contexts": [
+      "无奈",
+      "自嘲",
+      "短剧",
+      "反转失败",
+      "被拿捏"
+    ],
     "emotion_deltas": {
       "resigned": 0.72,
       "mocking": 0.2,
       "heart": -0.03
     },
-    "actions": ["shrug_then_wave"],
-    "lines": ["如何呢，又能怎"],
-    "explanation": "这是无奈认输型梗，机械臂可用摊手和小幅挥手表现“算了”。"
+    "actions": [
+      "shrug_then_wave"
+    ],
+    "lines": [
+      "如何呢，又能怎"
+    ],
+    "explanation": "这是无奈认输型梗，机械臂可用摊手和小幅挥手表现“算了”。",
+    "character_id": "dingzhen"
   },
   {
     "id": "sigua_soup",
     "name": "喝碗丝瓜汤",
-    "aliases": ["丝瓜汤", "喝碗丝瓜汤", "来碗丝瓜汤"],
-    "symbols": ["冷静一下", "自我安慰", "降火", "疗愈"],
-    "contexts": ["破防", "安慰", "短剧", "自嘲", "缓和冲突"],
+    "aliases": [
+      "丝瓜汤",
+      "喝碗丝瓜汤",
+      "来碗丝瓜汤"
+    ],
+    "symbols": [
+      "冷静一下",
+      "自我安慰",
+      "降火",
+      "疗愈"
+    ],
+    "contexts": [
+      "破防",
+      "安慰",
+      "短剧",
+      "自嘲",
+      "缓和冲突"
+    ],
     "emotion_deltas": {
       "affection": 0.18,
       "resigned": 0.26,
       "heart": 0.08
     },
-    "actions": ["calm_down_sip"],
-    "lines": ["喝碗丝瓜汤冷静一下"],
-    "explanation": "适合从夸张冲突切到自我安慰，让机械臂做端碗/下压平复动作。"
+    "actions": [
+      "calm_down_sip"
+    ],
+    "lines": [
+      "喝碗丝瓜汤冷静一下"
+    ],
+    "explanation": "适合从夸张冲突切到自我安慰，让机械臂做端碗/下压平复动作。",
+    "character_id": "doubao"
   },
   {
     "id": "elegant_penguin",
     "name": "高雅人士企鹅舞",
-    "aliases": ["高雅人士", "企鹅舞", "高雅人士企鹅舞"],
-    "symbols": ["优雅", "企鹅", "抽象舞步", "高雅"],
-    "contexts": ["舞台", "整活", "抽象", "短剧", "观众互动"],
+    "aliases": [
+      "高雅人士",
+      "企鹅舞",
+      "高雅人士企鹅舞"
+    ],
+    "symbols": [
+      "优雅",
+      "企鹅",
+      "抽象舞步",
+      "高雅"
+    ],
+    "contexts": [
+      "舞台",
+      "整活",
+      "抽象",
+      "短剧",
+      "观众互动"
+    ],
     "emotion_deltas": {
       "playful": 0.72,
       "mocking": 0.2,
       "heart": 0.1
     },
-    "actions": ["elegant_penguin_pose"],
-    "lines": ["高雅人士登场"],
-    "explanation": "抽象舞步类梗最适合机械臂做节奏摆动和定格，识别度高。"
+    "actions": [
+      "elegant_penguin_pose"
+    ],
+    "lines": [
+      "高雅人士登场"
+    ],
+    "explanation": "抽象舞步类梗最适合机械臂做节奏摆动和定格，识别度高。",
+    "character_id": "dingzhen"
   },
   {
     "id": "crazy_thursday",
     "name": "疯狂星期四 / V我50文学",
-    "aliases": ["疯狂星期四", "疯四文学", "肯德基疯狂星期四"],
-    "symbols": ["V我50", "星期四", "肯德基", "谁请我吃"],
-    "contexts": ["长故事反转", "心碎", "秦始皇", "悬念", "文案", "借钱"],
+    "aliases": [
+      "疯狂星期四",
+      "疯四文学",
+      "肯德基疯狂星期四"
+    ],
+    "symbols": [
+      "V我50",
+      "星期四",
+      "肯德基",
+      "谁请我吃"
+    ],
+    "contexts": [
+      "长故事反转",
+      "心碎",
+      "秦始皇",
+      "悬念",
+      "文案",
+      "借钱"
+    ],
     "emotion_deltas": {
       "playful": 0.58,
       "mocking": 0.2,
       "heart": 0.08
     },
-    "actions": ["voice_only_nod"],
-    "lines": ["今天疯狂星期四，V我50"],
+    "actions": [
+      "voice_only_nod"
+    ],
+    "lines": [
+      "今天疯狂星期四，V我50"
+    ],
     "explanation": "星期四、肯德基和 V我50 是稳定的文化符号链；前文可以是任意悬念故事，结尾负责反转。",
-    "response_mode": "voice_only"
+    "response_mode": "voice_only",
+    "character_id": "doubao"
   },
   {
     "id": "yaoyao_leading",
     "name": "遥遥领先",
-    "aliases": ["遥遥领先", "遥遥领先于同行"],
-    "symbols": ["技术", "实力", "领先", "国产科技", "黑科技"],
-    "contexts": ["产品展示", "机器人", "发布会", "评委展示", "性能介绍"],
+    "aliases": [
+      "遥遥领先",
+      "遥遥领先于同行",
+      "我们遥遥领先",
+      "这也能遥遥领先?",
+      "这也能遥遥领先",
+      "遥遥领先了属于是"
+    ],
+    "symbols": [
+      "技术",
+      "实力",
+      "领先",
+      "国产科技",
+      "黑科技",
+      "遥遥领先",
+      "自信",
+      "宣传",
+      "反讽",
+      "夸张宣传",
+      "无人可比",
+      "调侃优势"
+    ],
+    "contexts": [
+      "产品展示",
+      "机器人",
+      "发布会",
+      "评委展示",
+      "性能介绍",
+      "double_edged_praise",
+      "ambiguous_praise_or_mockery",
+      "any_context"
+    ],
     "emotion_deltas": {
       "dramatic": 0.3,
       "playful": 0.3,
       "heart": 0.06
     },
-    "actions": ["voice_only_nod"],
-    "lines": ["遥遥领先"],
-    "explanation": "技术、实力和发布会语境触发固定口播，动作保持克制，让语音承担笑点。",
-    "response_mode": "voice_only"
+    "actions": [
+      "voice_only_nod"
+    ],
+    "lines": [
+      "遥遥领先"
+    ],
+    "explanation": "发布会营销腔梗。既可真夸“遥遥领先”，也可反讽过度自信、自吹自擂，按语境决定褒贬。",
+    "response_mode": "voice_only",
+    "character_id": "trump"
   },
   {
     "id": "qin_shihuang_scam",
     "name": "我是秦始皇",
-    "aliases": ["我是秦始皇", "秦始皇打钱", "封你做大将军"],
-    "symbols": ["打钱", "大将军", "复活兵马俑", "统一六国"],
-    "contexts": ["诈骗文学", "身份反转", "荒诞承诺", "短剧"],
+    "aliases": [
+      "我是秦始皇",
+      "秦始皇打钱",
+      "封你做大将军"
+    ],
+    "symbols": [
+      "打钱",
+      "大将军",
+      "复活兵马俑",
+      "统一六国"
+    ],
+    "contexts": [
+      "诈骗文学",
+      "身份反转",
+      "荒诞承诺",
+      "短剧"
+    ],
     "emotion_deltas": {
       "dramatic": 0.52,
       "mocking": 0.18,
       "heart": 0.02
     },
-    "actions": ["imperial_small_wave"],
-    "lines": ["我是秦始皇，打钱，封你做大将军"],
+    "actions": [
+      "imperial_small_wave"
+    ],
+    "lines": [
+      "我是秦始皇，打钱，封你做大将军"
+    ],
     "explanation": "秦始皇、打钱和封官构成诈骗文学符号链；若同时出现星期四或 V我50，则周四文学优先。",
-    "response_mode": "small_motion"
+    "response_mode": "small_motion",
+    "character_id": "trump"
   },
   {
     "id": "cyber_trump",
     "name": "赛博川王机器人开场",
-    "aliases": ["No one knows Robot better than me", "没人比我更懂机器人", "你懂不懂机器人", "你了解机器人吗", "赛博川普", "川王"],
-    "symbols": ["YMCA", "手风琴", "Trump voice", "川普语音包"],
-    "contexts": ["评委展示", "开场", "机器人表演", "舞台整活"],
+    "aliases": [
+      "No one knows Robot better than me",
+      "没人比我更懂机器人",
+      "你懂不懂机器人",
+      "你了解机器人吗",
+      "赛博川普",
+      "川王"
+    ],
+    "symbols": [
+      "YMCA",
+      "手风琴",
+      "Trump voice",
+      "川普语音包"
+    ],
+    "contexts": [
+      "评委展示",
+      "开场",
+      "机器人表演",
+      "舞台整活"
+    ],
     "emotion_deltas": {
       "playful": 0.7,
       "dramatic": 0.48,
       "heart": 0.1
     },
-    "actions": ["accordion_gesture", "ymca_dance"],
-    "lines": ["No one knows Robot better than me"],
+    "actions": [
+      "accordion_gesture",
+      "ymca_dance"
+    ],
+    "lines": [
+      "No one knows Robot better than me"
+    ],
     "explanation": "固定英文口播、手风琴手势和 YMCA 构成独立开场，不依赖龙王剧情。",
     "response_mode": "show_opening",
-    "asset_id": "hyper3d/cyber_trump_gen2_color_v2/base_basic_pbr.glb"
+    "asset_id": "hyper3d/cyber_trump_gen2_color_v2/base_basic_pbr.glb",
+    "character_id": "trump"
+  },
+  {
+    "id": "skill_gobang",
+    "name": "技能五子棋 / 飞沙走石力拔山兮",
+    "aliases": [
+      "技能五子棋",
+      "飞沙走石力拔山兮两极反转",
+      "飞沙走石，力拔山兮，两极反转",
+      "普通的XX好无趣",
+      "而技能XX就是加入技能"
+    ],
+    "symbols": [
+      "飞沙走石",
+      "力拔山兮",
+      "两极反转",
+      "中二",
+      "过度包装",
+      "认真过度",
+      "故弄玄虚",
+      "又唱又跳",
+      "狗屁不通",
+      "技能五子棋",
+      "反差"
+    ],
+    "contexts": [
+      "抽象",
+      "中二",
+      "吐槽",
+      "舞台",
+      "故弄玄虚",
+      "absurdist_overdramatization",
+      "mock_serious_trivialization",
+      "any_casual_context"
+    ],
+    "emotion_deltas": {
+      "playful": 0.58,
+      "mocking": 0.38,
+      "dramatic": 0.42
+    },
+    "actions": [
+      "rhythm_shake_then_pose",
+      "dramatic_stop"
+    ],
+    "lines": [
+      "飞沙走石，力拔山兮，两极反转"
+    ],
+    "explanation": "技能五子棋式中二包装梗。把普通事情讲得飞沙走石、力拔山兮，适合吐槽故弄玄虚和过度包装。",
+    "response_mode": "stage_motion",
+    "character_id": "doubao"
+  },
+  {
+    "id": "wo_yao_yan_pai",
+    "name": "我要验牌 / 窝腰烟牌",
+    "aliases": [
+      "我要验牌",
+      "窝腰烟牌",
+      "验牌",
+      "我要验牌!",
+      "牌拿来我看看",
+      "我要验牌（窝腰烟牌）",
+      "验牌!"
+    ],
+    "symbols": [
+      "法式口音",
+      "质疑",
+      "检查",
+      "作弊",
+      "游戏",
+      "嚣张宣言",
+      "空耳",
+      "权威质疑",
+      "验牌",
+      "我要验牌",
+      "窝腰烟牌"
+    ],
+    "contexts": [
+      "游戏",
+      "质疑",
+      "检查",
+      "抽象模仿",
+      "absurdist_voice_mimicry",
+      "playful_authority_mockery",
+      "any_casual_context"
+    ],
+    "emotion_deltas": {
+      "playful": 0.52,
+      "mocking": 0.28,
+      "dramatic": 0.25
+    },
+    "actions": [
+      "sharp_point_then_pause",
+      "dramatic_stop"
+    ],
+    "lines": [
+      "我要验牌（窝腰烟牌）"
+    ],
+    "explanation": "我要验牌/窝腰烟牌空耳梗。用于夸张模仿带口音的权威质疑、检查、怀疑作弊。",
+    "response_mode": "small_motion",
+    "character_id": "trump"
+  },
+  {
+    "id": "na_dongxi_hao_de_ya",
+    "name": "拿东西给我拿好的呀",
+    "aliases": [
+      "拿东西给我拿好的呀",
+      "拿好的呀",
+      "给我拿好的",
+      "你拿的什么东西",
+      "给我拿好的!",
+      "拿好的呀!"
+    ],
+    "symbols": [
+      "拿东西",
+      "夸张发火",
+      "震怒",
+      "带货翻车",
+      "小题大做",
+      "主播破防",
+      "夸张情绪",
+      "发火"
+    ],
+    "contexts": [
+      "破防",
+      "发火",
+      "小题大做",
+      "直播",
+      "exaggerated_tantrum",
+      "mock_overreaction",
+      "any_casual_context"
+    ],
+    "emotion_deltas": {
+      "fake_angry": 0.62,
+      "mocking": 0.3,
+      "playful": 0.16
+    },
+    "actions": [
+      "sharp_point_then_pause",
+      "dramatic_stop"
+    ],
+    "lines": [
+      "拿东西给我拿好的呀"
+    ],
+    "explanation": "拿东西给我拿好的呀。用于调侃因小事夸张发火、小题大做、直播式破防。",
+    "response_mode": "small_motion",
+    "character_id": "dingzhen"
+  },
+  {
+    "id": "kaluli_burning",
+    "name": "燃烧我的卡路里",
+    "aliases": [
+      "燃烧我的卡路里",
+      "卡路里",
+      "燃烧卡路里",
+      "我要减肥了",
+      "嘴上运动",
+      "燃烧我的卡路里!"
+    ],
+    "symbols": [
+      "运动",
+      "健身",
+      "减肥",
+      "立flag",
+      "调侃励志",
+      "讽刺努力",
+      "跑调健身",
+      "自嘲",
+      "卡路里",
+      "燃烧",
+      "跑调励志"
+    ],
+    "contexts": [
+      "健身",
+      "自嘲",
+      "减肥",
+      "立flag",
+      "self_deprecating_motivation",
+      "ironic_self_mockery",
+      "any_context"
+    ],
+    "emotion_deltas": {
+      "playful": 0.5,
+      "mocking": 0.18,
+      "heart": 0.08
+    },
+    "actions": [
+      "rhythm_shake_then_pose",
+      "voice_only_nod"
+    ],
+    "lines": [
+      "燃烧我的卡路里"
+    ],
+    "explanation": "燃烧我的卡路里。表面健身励志，实际常用于减肥、立 flag、嘴上努力但没行动的自嘲。",
+    "response_mode": "small_motion",
+    "character_id": "kobe"
+  },
+  {
+    "id": "starlight_blame",
+    "name": "星光坏事做尽 / 万物甩锅",
+    "aliases": [
+      "星光坏事做尽",
+      "都怪星光",
+      "星光干的",
+      "星光又干坏事了"
+    ],
+    "symbols": [
+      "星光",
+      "坏事做尽",
+      "坏事",
+      "背锅",
+      "推责",
+      "甩锅",
+      "替罪羊",
+      "资本做局",
+      "吐槽"
+    ],
+    "contexts": [
+      "吐槽",
+      "背锅",
+      "甩锅",
+      "黑色幽默",
+      "scapegoat_satire",
+      "ironic_blame_shifting",
+      "any_casual_context"
+    ],
+    "emotion_deltas": {
+      "mocking": 0.44,
+      "playful": 0.28,
+      "confusion": 0.18
+    },
+    "actions": [
+      "shrug_then_wave",
+      "voice_only_nod"
+    ],
+    "lines": [
+      "星光坏事做尽"
+    ],
+    "explanation": "星光坏事做尽。万物甩锅模板，把倒霉事荒诞归因给同一个背锅对象。",
+    "response_mode": "small_motion",
+    "character_id": "dingzhen"
+  },
+  {
+    "id": "rigged_lottery_stop_miss",
+    "name": "中奖概率倍儿高，停，没中",
+    "aliases": [
+      "中奖概率倍儿高，奖品也倍儿好，停，没中",
+      "中奖概率倍儿高",
+      "倍儿高倍儿好",
+      "停，没中",
+      "停没中",
+      "抽奖从一开始就输了",
+      "停! 没中",
+      "概率做局"
+    ],
+    "symbols": [
+      "抽奖",
+      "没中",
+      "做局",
+      "控制概率",
+      "讽刺赌博",
+      "天津话",
+      "期待落空",
+      "表面公平",
+      "中奖概率倍儿高",
+      "倍儿好",
+      "停",
+      "抽奖做局"
+    ],
+    "contexts": [
+      "抽奖",
+      "套路",
+      "落空",
+      "反讽",
+      "rigged_expectation_satire",
+      "ironic_false_promise_mockery",
+      "any_context"
+    ],
+    "emotion_deltas": {
+      "mocking": 0.5,
+      "playful": 0.24,
+      "confusion": 0.12
+    },
+    "actions": [
+      "dramatic_stop",
+      "shrug_then_wave"
+    ],
+    "lines": [
+      "中奖概率倍儿高，奖品也倍儿好，停，没中"
+    ],
+    "explanation": "中奖概率倍儿高，停，没中。用于讽刺抽奖、承诺或期待表面很香，实际从一开始就注定落空。",
+    "response_mode": "small_motion",
+    "character_id": "trump"
+  },
+  {
+    "id": "dragon_emperor_sign",
+    "name": "龙，可是帝王之征啊",
+    "aliases": [
+      "龙，可是帝王之征啊",
+      "龙可是帝王之征啊",
+      "我再听到这个我就扎聋自己的耳朵",
+      "扎聋自己的耳朵",
+      "我再听到这个我就",
+      "龙，可是帝王之征啊 / 我再听到这个我就扎聋自己的耳朵",
+      "我再听到这个我就...",
+      "扎聋我耳朵"
+    ],
+    "symbols": [
+      "新三国",
+      "帝王之征",
+      "扎聋耳朵",
+      "回怼",
+      "离谱回应",
+      "中二",
+      "半文半白",
+      "尴尬台词",
+      "龙可是帝王之征",
+      "回应烂梗",
+      "调戏用户",
+      "自残式回应"
+    ],
+    "contexts": [
+      "中二",
+      "回怼",
+      "尴尬",
+      "离谱发言",
+      "absurd_counter_response",
+      "mock_serious_with_absurd_overreaction",
+      "any_casual_context"
+    ],
+    "emotion_deltas": {
+      "mocking": 0.45,
+      "fake_angry": 0.22,
+      "dramatic": 0.28
+    },
+    "actions": [
+      "ward_off_push",
+      "dramatic_stop"
+    ],
+    "lines": [
+      "龙，可是帝王之征啊 / 我再听到这个我就扎聋自己的耳朵"
+    ],
+    "explanation": "龙可是帝王之征啊。用更离谱的方式回应中二或一本正经的尴尬发言，适合夸张回怼。",
+    "response_mode": "small_motion",
+    "character_id": "trump"
+  },
+  {
+    "id": "kobe_hell_joke_revival",
+    "name": "科比坠机 / 复活赛地狱笑话",
+    "aliases": [
+      "科比",
+      "老大",
+      "孩子们",
+      "复活",
+      "复活赛",
+      "坠机",
+      "飞机坠毁",
+      "直升机坠毁",
+      "科比坠机",
+      "科比复活",
+      "科比复活赛",
+      "老大复活",
+      "老大坠机",
+      "老大打复活赛",
+      "孩子们我回来了",
+      "孩子们我复活了",
+      "曼巴复活",
+      "曼巴精神复活",
+      "mamba out",
+      "mamba back",
+      "Kobe",
+      "Black Mamba"
+    ],
+    "symbols": [
+      "科比",
+      "Kobe",
+      "老大",
+      "曼巴",
+      "黑曼巴",
+      "孩子们",
+      "复活",
+      "复活赛",
+      "坠机",
+      "空难",
+      "直升机",
+      "飞机",
+      "地狱笑话",
+      "黑色幽默",
+      "死亡玩笑",
+      "篮球",
+      "湖人",
+      "24号",
+      "8号",
+      "mamba",
+      "mamba mentality"
+    ],
+    "contexts": [
+      "地狱笑话",
+      "黑色幽默",
+      "幽默",
+      "嘲讽",
+      "篮球",
+      "复活赛",
+      "hell_joke",
+      "dark_humor",
+      "kobe_voice_roleplay"
+    ],
+    "emotion_deltas": {
+      "mocking": 0.56,
+      "playful": 0.32,
+      "dramatic": 0.3,
+      "heart": -0.08
+    },
+    "actions": [
+      "dramatic_stop",
+      "shrug_then_wave"
+    ],
+    "lines": [
+      "孩子们，我回来了",
+      "老大打复活赛",
+      "科比复活赛",
+      "曼巴复活"
+    ],
+    "explanation": "科比坠机事件相关的地狱笑话/黑色幽默梗。用户提到科比、老大、孩子们、复活、复活赛、坠机、曼巴等词时，以科比口吻做夸张幽默或轻微嘲讽式接梗，但避免真实血腥细节和过度消费遇难者。",
+    "response_mode": "small_motion",
+    "character_id": "kobe"
+  },
+  {
+    "id": "dingzhen_litang_snow_leopard",
+    "name": "丁真 / 理塘雪豹抽象梗",
+    "aliases": [
+      "丁真",
+      "准真",
+      "雪豹",
+      "理塘",
+      "瑞克",
+      "丁真瑞克",
+      "丁真雪豹",
+      "理塘丁真",
+      "理塘王子",
+      "丁真抽烟",
+      "雪豹闭嘴",
+      "闭嘴雪豹",
+      "妈妈生的",
+      "妈妈生的准真",
+      "藏族丁真",
+      "丁真的世界",
+      "纯真丁真",
+      "锐刻丁真",
+      "电子烟丁真",
+      "一眼丁真",
+      "鉴定为丁真",
+      "鉴定为准真"
+    ],
+    "symbols": [
+      "雪豹",
+      "闭嘴",
+      "妈妈",
+      "理塘",
+      "抽烟",
+      "电子烟",
+      "瑞克",
+      "锐刻",
+      "丁真",
+      "准真",
+      "藏族",
+      "理塘王子",
+      "纯真",
+      "一眼真",
+      "鉴定",
+      "网红",
+      "搞怪",
+      "抽象",
+      "草原",
+      "四川理塘",
+      "烟杆",
+      "豹豹"
+    ],
+    "contexts": [
+      "搞怪",
+      "抽象",
+      "玩梗",
+      "网红梗",
+      "丁真宇宙",
+      "理塘",
+      "snow_leopard_meme",
+      "litang_absurd_meme"
+    ],
+    "emotion_deltas": {
+      "mocking": 0.42,
+      "playful": 0.48,
+      "confusion": 0.18,
+      "dramatic": 0.12
+    },
+    "actions": [
+      "elegant_penguin_pose",
+      "shrug_then_wave"
+    ],
+    "lines": [
+      "雪豹闭嘴",
+      "鉴定为丁真",
+      "鉴定为准真",
+      "妈妈生的",
+      "理塘王子"
+    ],
+    "explanation": "丁真、理塘、雪豹、瑞克/锐刻、抽烟、准真等关键词组成的抽象网红梗簇，适用于搞怪、荒诞、轻微嘲讽的接梗场景。用户提到这些词时，可以用夸张鉴定、理塘宇宙、雪豹插话等方式玩梗，但避免上升到现实族群攻击。",
+    "response_mode": "small_motion",
+    "character_id": "dingzhen"
   }
 ]

@@ -27,7 +27,10 @@ class AliyunRealtimeSTTConfig:
     url: str | None = None
     sample_rate: int = 16000
     semantic_punctuation: bool = False
-    max_sentence_silence_ms: int = 400
+    # Keep short pauses inside one utterance. The gate continues sending digital
+    # silence until ASR emits the final transcript, so this is the actual
+    # sentence-end debounce rather than a workaround for missing audio.
+    max_sentence_silence_ms: int = 900
     skip_preflight: bool = True
     noise_gate_enabled: bool = True
     noise_gate_dbfs: float = -45.0
@@ -231,6 +234,11 @@ class _AliyunSpeechStream(stt.SpeechStream):
                 # Do not send the real below-threshold microphone frame. Digital silence
                 # preserves ASR timing and lets the cloud recognizer finish the sentence.
                 return b"\x00" * len(data) if config.noise_gate_send_silence_after_speech else b""
+            if self._in_speech and config.noise_gate_send_silence_after_speech:
+                # Do not close the transport-side gate before Aliyun has emitted
+                # END_OF_SPEECH. Otherwise ASR may wait for the next real frame
+                # and attach the previous sentence to the next utterance.
+                return b"\x00" * len(data)
             LOGGER.info("Aliyun STT noise gate closed: dbfs=%.1f threshold=%.1f", dbfs, config.noise_gate_dbfs)
             self._gate_open = False
 
@@ -310,7 +318,7 @@ def config_from_env(api_key: str | None = None) -> AliyunRealtimeSTTConfig:
         region=os.environ.get("DASHSCOPE_REGION", "beijing"),
         url=os.environ.get("TANYUE_ALIYUN_STT_URL") or os.environ.get("DASHSCOPE_FUNASR_WEBSOCKET_URL"),
         semantic_punctuation=os.environ.get("TANYUE_ALIYUN_STT_PUNCTUATION", "0") in {"1", "true", "True"},
-        max_sentence_silence_ms=int(os.environ.get("TANYUE_ALIYUN_STT_SILENCE_MS", "400")),
+        max_sentence_silence_ms=int(os.environ.get("TANYUE_ALIYUN_STT_SILENCE_MS", "900")),
         noise_gate_enabled=os.environ.get("TANYUE_ALIYUN_STT_NOISE_GATE_ENABLED", "1") in {"1", "true", "True"},
         noise_gate_dbfs=float(os.environ.get("TANYUE_ALIYUN_STT_NOISE_GATE_DBFS", "-45")),
         noise_gate_open_ms=int(os.environ.get("TANYUE_ALIYUN_STT_NOISE_GATE_OPEN_MS", "80")),

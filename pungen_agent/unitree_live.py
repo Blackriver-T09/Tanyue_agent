@@ -19,6 +19,8 @@ from .unitree_io import (
 )
 from .unitree_runtime import PunGenUnitreeRuntime
 
+VOICE_PACK_KEYS = ("dingzhen", "doubao", "kobe", "trump")
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -46,7 +48,14 @@ def create_runtime(args: argparse.Namespace) -> PunGenUnitreeRuntime:
     audio, loco = connect_g1(args.interface)
     audio.SetVolume(max(0, min(100, args.volume)))
     robot_voice = G1BuiltinVoiceClient(audio)
-    voice_tracks = {"cyber_trump": args.trump_wav} if args.trump_wav else {}
+    voice_track_dir = TANYUE_ROOT / "voice" / "reference_voice"
+    voice_tracks = {
+        key: track
+        for key in VOICE_PACK_KEYS
+        if (track := voice_track_dir / f"{key}.wav").is_file()
+    }
+    if args.trump_wav:
+        voice_tracks["trump"] = args.trump_wav
     music_tracks = {"ymca": args.ymca_wav} if args.ymca_wav else {}
     accordion_runner = None
     if args.accordion_bin:

@@ -92,7 +92,7 @@ The primary demo path no longer depends on the web avatar:
 
 ```text
 Microphone -> Aliyun realtime ASR -> PunGen symbolic recognition
-           -> G1 voice pack / built-in TTS -> G1 high-level motion
+           -> G1 voice pack by character_id / built-in TTS -> G1 high-level motion
 ```
 
 Run one hardware smoke turn first:
@@ -173,6 +173,7 @@ The HTTP and CLI output share the same JSON protocol:
   "recognition": {
     "meme_id": "xinteng_giegie",
     "meme_name": "心疼 giegie / 绿茶委屈名场面",
+    "character_id": "doubao",
     "confidence": 0.72,
     "match_type": "symbolic",
     "matched_symbols": ["棒棒糖"],
@@ -194,7 +195,9 @@ The HTTP and CLI output share the same JSON protocol:
 
 Robot and avatar integrations should read `action.arm_action`,
 `action.intensity`, `action.duration_s`, and `action.line`. Low-confidence input
-returns `idle_listen` with `safe_no_contact`.
+returns `idle_listen` with `safe_no_contact`. Voice playback should prefer
+`recognition.character_id` first; `meme_id` is no longer the voice selection
+key.
 
 `action.performance_tier` controls the demo amplitude: `voice_only` caps motion
 at 0.35, `small_motion` caps it at 0.55, and `show_opening` allows a bounded
@@ -255,6 +258,9 @@ Edit `pungen_agent/data/memes.json` to add memes. The important fields are:
   visual details.
 - `contexts`: scenes where the meme is appropriate.
 - `emotion_deltas`: how the meme changes the emotion state.
+- `character_id`: voice pack key to use for playback. Supported keys are
+  `dingzhen`, `doubao`, `kobe`, and `trump`. If a meme has no fixed persona,
+  pick one of the four and keep it stable in the data file.
 - `actions`: robot/avatar action IDs for the adapter team.
 
 This is deliberately a symbolic-cultural index first. LLM reranking and vector

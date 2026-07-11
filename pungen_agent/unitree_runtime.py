@@ -65,7 +65,8 @@ class PunGenUnitreeRuntime:
                 }
 
             line = action.get("line") or recognition.get("line") or ""
-            voice_result = self.voice.speak(line, voice_pack=str(meme_id)) if line else None
+            voice_pack = str(recognition.get("character_id") or meme_id)
+            voice_result = self.voice.speak(line, voice_pack=voice_pack) if line else None
             music_result = None
             if action.get("action_id") == "ymca_dance":
                 music_result = self.music.play("ymca")
@@ -76,6 +77,7 @@ class PunGenUnitreeRuntime:
                 "meme_id": meme_id,
                 "confidence": recognition.get("confidence"),
                 "line": line,
+                "character_id": voice_pack,
                 "action_id": action.get("action_id"),
                 "voice": voice_result,
                 "music": music_result,

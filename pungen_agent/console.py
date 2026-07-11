@@ -235,7 +235,7 @@ def render_console_page() -> str:
 
       <section class="view" data-view="knowledge">
         <div class="section-head"><div><h2>Knowledge Catalog</h2><p><span id="meme-count">0</span> memes · <span id="action-count">0</span> actions</p></div></div>
-        <div class="panel table-wrap"><table><thead><tr><th>Meme</th><th>Cues</th><th>Response mode</th><th>Actions</th><th>Asset</th></tr></thead><tbody id="meme-rows"></tbody></table></div>
+        <div class="panel table-wrap"><table><thead><tr><th>Meme</th><th>Cues</th><th>Response mode</th><th>Voice</th><th>Actions</th><th>Asset</th></tr></thead><tbody id="meme-rows"></tbody></table></div>
       </section>
 
       <section class="view" data-view="evidence">
@@ -308,7 +308,7 @@ def render_console_page() -> str:
 
   async function loadKnowledge() {
     const payload = await jsonRequest("/memes");
-    byId("meme-rows").innerHTML = payload.memes.map((meme) => `<tr><td><b>${escapeHtml(meme.name)}</b><br><span>${escapeHtml(meme.id)}</span></td><td>${escapeHtml([...meme.aliases, ...meme.symbols].slice(0, 5).join(" · "))}</td><td>${escapeHtml(meme.response_mode)}</td><td>${escapeHtml(meme.actions.join(", "))}</td><td>${meme.asset_id ? "linked" : "-"}</td></tr>`).join("");
+    byId("meme-rows").innerHTML = payload.memes.map((meme) => `<tr><td><b>${escapeHtml(meme.name)}</b><br><span>${escapeHtml(meme.id)}</span></td><td>${escapeHtml([...meme.aliases, ...meme.symbols].slice(0, 5).join(" · "))}</td><td>${escapeHtml(meme.response_mode)}</td><td>${escapeHtml(meme.character_id || "-")}</td><td>${escapeHtml(meme.actions.join(", "))}</td><td>${meme.asset_id ? "linked" : "-"}</td></tr>`).join("");
   }
 
   function renderStage(payload) {

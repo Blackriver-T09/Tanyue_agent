@@ -126,6 +126,7 @@ class MemeRecognizer:
         return {
             "meme_id": meme.id,
             "meme_name": meme.name,
+            "character_id": meme.character_id,
             "confidence": scored["confidence"],
             "match_type": match_type,
             "matched_aliases": scored["matched_aliases"],
@@ -146,6 +147,7 @@ class MemeRecognizer:
             "meme_name": None,
             "confidence": 0.0,
             "match_type": "none",
+            "character_id": "",
             "matched_aliases": [],
             "matched_symbols": [],
             "matched_contexts": [],
