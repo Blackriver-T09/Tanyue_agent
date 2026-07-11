@@ -87,7 +87,7 @@ cp voice/.env.livekit.example voice/.env
 ```bash
 LIVEKIT_URL=ws://127.0.0.1:7880
 LIVEKIT_API_KEY=devkey
-LIVEKIT_API_SECRET=devsecret
+LIVEKIT_API_SECRET=devsecretdevsecretdevsecretdevsecret
 ```
 
 这些来自 [LiveKit/livekit.local.yaml](/Users/heihe/Desktop/Project/Tanyue/LiveKit/livekit.local.yaml)。正式部署时必须替换成强密钥。

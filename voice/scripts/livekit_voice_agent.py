@@ -30,7 +30,7 @@ if load_dotenv:
 
 os.environ.setdefault("LIVEKIT_URL", "ws://127.0.0.1:7880")
 os.environ.setdefault("LIVEKIT_API_KEY", "devkey")
-os.environ.setdefault("LIVEKIT_API_SECRET", "devsecret")
+os.environ.setdefault("LIVEKIT_API_SECRET", "devsecretdevsecretdevsecretdevsecret")
 
 try:
     CONFIG = importlib.import_module("Config")

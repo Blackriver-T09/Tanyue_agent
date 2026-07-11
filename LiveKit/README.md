@@ -16,7 +16,7 @@ docker compose up
 ```bash
 LIVEKIT_URL=ws://127.0.0.1:7880
 LIVEKIT_API_KEY=devkey
-LIVEKIT_API_SECRET=devsecret
+LIVEKIT_API_SECRET=devsecretdevsecretdevsecretdevsecret
 ```
 
 端口：
@@ -25,7 +25,7 @@ LIVEKIT_API_SECRET=devsecret
 - `7881`：RTC TCP fallback
 - `50000-50100/udp`：RTC UDP media port range
 
-开发阶段可以使用这里的 `devkey/devsecret`。正式部署时必须替换为强随机密钥，并按实际网络环境配置公网 IP、TLS、TURN 或反向代理。
+开发阶段可以使用这里的 `devkey/devsecretdevsecretdevsecretdevsecret`。正式部署时必须替换为强随机密钥，并按实际网络环境配置公网 IP、TLS、TURN 或反向代理。
 
 ## English
 
@@ -43,8 +43,7 @@ Local development environment:
 ```bash
 LIVEKIT_URL=ws://127.0.0.1:7880
 LIVEKIT_API_KEY=devkey
-LIVEKIT_API_SECRET=devsecret
+LIVEKIT_API_SECRET=devsecretdevsecretdevsecretdevsecret
 ```
 
-Replace `devkey/devsecret` before any real deployment.
-
+Replace `devkey/devsecretdevsecretdevsecretdevsecret` before any real deployment.

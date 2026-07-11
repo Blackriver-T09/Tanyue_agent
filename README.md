@@ -119,7 +119,7 @@ cp voice/.env.livekit.example voice/.env
 ```bash
 LIVEKIT_URL=ws://127.0.0.1:7880
 LIVEKIT_API_KEY=devkey
-LIVEKIT_API_SECRET=devsecret
+LIVEKIT_API_SECRET=devsecretdevsecretdevsecretdevsecret
 
 TANYUE_STT_PROVIDER=aliyun
 TANYUE_ALIYUN_STT_MODEL=fun-asr-realtime
@@ -330,7 +330,7 @@ tanyue-test-1
 - 从说完话到开始说话超过数秒：确认日志里 `qwen_thinking=False`。
 - Agent 说话时被自己的声音打断：优先使用耳机或降低扬声器音量，并确认浏览器麦克风权限对应的是正确输入设备。可调高 `TANYUE_MIN_INTERRUPTION_WORDS` 或 `TANYUE_MIN_INTERRUPTION_DURATION`，也可临时设置 `TANYUE_ALLOW_INTERRUPTION=0` 完全关闭打断。
 - 如果你看到页面提示 `Assistant speaking`，这是前端正在保护麦克风输入；等待 Agent 说完后会自动恢复为 `Listening`。
-- `InsecureKeyLengthWarning`：本地 `devsecret` 太短，仅开发环境可接受；正式部署需要替换强密钥。
+- `InsecureKeyLengthWarning`：LiveKit 要求 API secret 至少 32 个字符；正式部署需要替换为强随机密钥。
 - `/.well-known/appspecific/com.chrome.devtools.json 404`：Chrome/Edge DevTools 探测请求，可忽略。
 
 ## Git 保存策略
