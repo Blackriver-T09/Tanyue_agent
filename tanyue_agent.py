@@ -233,8 +233,8 @@ def create_app():
             "speed": float(os.environ.get("TANYUE_ROBOT_SPEED", "1.0")),
             "gain_db": float(os.environ.get("TANYUE_ROBOT_GAIN_DB", "6.0")),
             "trim_start_ms": float(os.environ.get("TANYUE_ROBOT_TRIM_START_MS", "0.0")),
-            "robot_chunk_bytes": int(os.environ.get("TANYUE_ROBOT_CHUNK_BYTES", "96000")),
-            "tail_wait_ms": float(os.environ.get("TANYUE_ROBOT_TAIL_WAIT_MS", "1000.0")),
+            "robot_chunk_bytes": int(os.environ.get("TANYUE_ROBOT_CHUNK_BYTES", "16000")),
+            "tail_wait_ms": float(os.environ.get("TANYUE_ROBOT_TAIL_WAIT_MS", "350.0")),
             "send_interval_ms": (
                 float(os.environ["TANYUE_ROBOT_SEND_INTERVAL_MS"])
                 if os.environ.get("TANYUE_ROBOT_SEND_INTERVAL_MS")
