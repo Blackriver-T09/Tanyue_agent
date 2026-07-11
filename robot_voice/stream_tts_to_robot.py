@@ -12,11 +12,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from robot_voice.aliyun_cosyvoice_client import AliyunCosyVoiceClient
 from robot_voice.pcm_resampler import resample_s16le_mono_stream
-from robot_voice.remote_tts_client import RemoteTTSClient, RemoteTTSConfig, TTSRequest
 from robot_voice.unitree_g1_voice import UnitreeG1Voice, apply_gain_s16le_stream
 from robot_voice.voice_registry import load_voice_registry, resolve_voice, unique_voice_entries
+from voice.tanyue_livekit.aliyun_cosyvoice import AliyunCosyVoiceTTS, config_from_env
 
 
 VALID_STRENGTHS = {"light", "strong", "max"}
@@ -76,7 +75,7 @@ def print_voices() -> None:
 
 
 def stream_text_to_robot(
-    tts: RemoteTTSClient,
+    tts: AliyunCosyVoiceTTS,
     robot: UnitreeG1Voice,
     text: str,
     emotion: str,
@@ -92,15 +91,14 @@ def stream_text_to_robot(
     robot_chunk_bytes: int,
     verbose: bool,
 ) -> None:
-    req = TTSRequest(
-        text=text,
+    pcm24 = tts.stream_pcm_bytes(
+        text,
         voice_id=voice_id,
         emotion=emotion,
         emotion_strength=emotion_strength,
         mode=mode,
         speed=speed,
     )
-    pcm24 = tts.stream_pcm(req)
     pcm24 = trim_pcm_stream(pcm24, sample_rate=24000, trim_start_ms=trim_start_ms)
     pcm16 = resample_s16le_mono_stream(pcm24, input_rate=24000, output_rate=16000, read_size=3200)
     pcm16 = apply_gain_s16le_stream(pcm16, gain_db)
@@ -132,10 +130,8 @@ def trim_pcm_stream(chunks, sample_rate: int, trim_start_ms: float):
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Stream remote TTS to Unitree G1 speaker.")
+    parser = argparse.ArgumentParser(description="Stream voice CosyVoice TTS to Unitree G1 speaker.")
     parser.add_argument("interface", nargs="?", help="Network interface connected to the robot, e.g. enp2s0.")
-    parser.add_argument("--provider", choices=["aliyun", "remote"], default="aliyun", help="TTS provider. Default uses Aliyun online CosyVoice.")
-    parser.add_argument("--api", default="https://frp-run.com:56330", help="Legacy remote TTS API base URL when --provider remote.")
     parser.add_argument("--text", help="Speak one sentence and exit. If omitted, starts an interactive loop.")
     parser.add_argument("--voice", default="default", help="Voice key or registered voice_id. Use --list-voices to inspect.")
     parser.add_argument("--emotion", default="", help="Default emotion/style prompt.")
@@ -154,8 +150,6 @@ def main() -> int:
     parser.add_argument("--gain-db", type=float, default=0.0, help="PCM gain before sending to robot. Try 3-9 if robot is quiet.")
     parser.add_argument("--trim-start-ms", type=float, default=0.0, help="Drop this many milliseconds from the start of synthesized PCM.")
     parser.add_argument("--timeout", type=float, default=10.0)
-    parser.add_argument("--use-env-proxy", action="store_true")
-    parser.add_argument("--resolve-ip", default="183.131.59.150", help="Use empty string to disable direct-IP fallback.")
     parser.add_argument("--list-interfaces", action="store_true", help="List local network interfaces with status/IP and exit.")
     parser.add_argument("--list-voices", action="store_true", help="List local registered voices and exit.")
     parser.add_argument("--check", action="store_true", help="Connect to the robot, print the current volume, and exit.")
@@ -195,16 +189,9 @@ def main() -> int:
         robot.say_builtin(args.builtin_text)
         return 0
 
-    if args.provider == "aliyun":
-        tts = AliyunCosyVoiceClient()
-    else:
-        tts = RemoteTTSClient(
-            RemoteTTSConfig(
-                api_base=args.api,
-                use_env_proxy=args.use_env_proxy,
-                resolve_ip=args.resolve_ip or None,
-            )
-        )
+    tts = AliyunCosyVoiceTTS(config_from_env())
+    if tts.config.clone_enabled:
+        tts.ensure_cloned_voice()
 
     emotion = args.emotion
     emotion_strength = args.emotion_strength

@@ -1,6 +1,6 @@
 # Tanyue Robot Voice
 
-宇树机器人发声装置开发目录。当前实现目标是：在终端输入一句话并按回车后，远程 TTS 生成音频流，脚本重采样后推送到宇树 G1 扬声器播放。
+宇树机器人发声装置开发目录。当前实现目标是：在终端输入一句话并按回车后，直接复用 `voice` 目录里的阿里云 CosyVoice 流式 TTS，脚本重采样后推送到宇树 G1 扬声器播放。
 
 ## Local References
 
@@ -32,14 +32,11 @@
 
 ## Implemented Prototype
 
-当前默认使用本地项目配置的阿里云在线 CosyVoice TTS，并增加了 G1 播放链路：
+当前默认直接复用 `voice` 目录中的阿里云在线 CosyVoice 流式合成链路，并增加了 G1 播放链路：
 
-- `aliyun_cosyvoice_client.py`
-  - 使用 `Config.py`、项目 `.env` 或 `voice/.env` 中的 DashScope / 百炼配置
-  - 通过阿里云 `dashscope.audio.tts_v2.SpeechSynthesizer` 在线流式合成
-  - 输出 `24 kHz / mono / s16le` PCM 流
-- `remote_tts_client.py`
-  - 保留为 legacy 远程 `/tts/stream` 备用入口
+- `voice/tanyue_livekit/aliyun_cosyvoice.py`
+  - 作为唯一的在线 CosyVoice 生成入口
+  - 提供 LiveKit 需要的 `AudioFrame` 流，也提供给机器人播放使用的原始 PCM 字节流
 - `pcm_resampler.py`
   - 使用 `ffmpeg` 将 `24 kHz / mono / s16le` 流式重采样为 G1 需要的 `16 kHz / mono / s16le`
 - `unitree_g1_voice.py`
@@ -48,7 +45,7 @@
   - 支持音量、LED、内置 TTS、PCM 流播放
 - `stream_tts_to_robot.py`
   - 终端交互入口
-  - 输入一句话，按回车后远程 TTS 开始流式生成，并通过 G1 `PlayStream` 播放
+  - 输入一句话，按回车后直接调用 `voice/tanyue_livekit/aliyun_cosyvoice.py` 的流式 TTS，并通过 G1 `PlayStream` 播放
 - `voice_registry.json`
   - 本地音色表，记录本地选择 key、阿里云注册 voice_id、源文件名
 - `register_aliyun_voices.py`
@@ -172,6 +169,7 @@ python robot_voice/stream_tts_to_robot.py en7 --volume 100 --gain-db 6 --voice d
 Kobe 音色使用 `Kobe.wav` 的中段清洗片段注册，避免把参考音频开头的固定台词带进合成结果。
 
 目前 `default`、`dingzhen`、`kobe`、`trump` 均已注册并可直接通过 `--voice` 选择。
+机器人脚本不再维护独立的 TTS 客户端，实际合成都走 `voice` 目录中的在线 CosyVoice 流式实现。
 
 ### Playback Completeness
 

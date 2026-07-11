@@ -9,7 +9,7 @@ import queue as sync_queue
 import random
 import threading
 from dataclasses import dataclass, field
-from typing import AsyncIterable, AsyncIterator
+from typing import AsyncIterable, AsyncIterator, Iterable, Iterator
 
 
 LOGGER = logging.getLogger("tanyue.aliyun_tts")
@@ -108,7 +108,7 @@ class AliyunCosyVoiceTTS:
             self._selected_voice_id = voice
             self._selected_voice_key = voice_key
             try:
-                async for frame in self._synthesize_once(rtc, chunks, voice):
+                async for frame in self._synthesize_frames_once(rtc, chunks, voice):
                     yield frame
                 return
             except AliyunCosyVoiceRetryableError as exc:
@@ -127,12 +127,105 @@ class AliyunCosyVoiceTTS:
         if last_error:
             raise last_error
 
-    async def _synthesize_once(
+    def stream_pcm_bytes(
+        self,
+        text: str | Iterable[str],
+        *,
+        voice_id: str | None = None,
+        emotion: str = "",
+        emotion_strength: str = "strong",
+        mode: str = "auto",
+        speed: float | None = None,
+        instruct_text: str | None = None,
+    ) -> Iterator[bytes]:
+        chunks: list[str]
+        if isinstance(text, str):
+            chunks = [text.strip()] if text.strip() else []
+        else:
+            chunks = [chunk.strip() for chunk in text if chunk and str(chunk).strip()]
+        if not chunks:
+            return
+
+        if voice_id:
+            self._selected_voice_id = voice_id
+            self._selected_voice_key = self._voice_key_for_id(voice_id)
+            yield from self._stream_pcm_bytes(
+                chunks,
+                voice_id,
+                emotion=emotion,
+                emotion_strength=emotion_strength,
+                mode=mode,
+                speed=speed,
+                instruct_text=instruct_text,
+            )
+            return
+
+        candidates = self._voice_candidates()
+        last_error: BaseException | None = None
+        for voice, voice_key in candidates:
+            self._selected_voice_id = voice
+            self._selected_voice_key = voice_key
+            try:
+                yield from self._stream_pcm_bytes(
+                    chunks,
+                    voice,
+                    emotion=emotion,
+                    emotion_strength=emotion_strength,
+                    mode=mode,
+                    speed=speed,
+                    instruct_text=instruct_text,
+                )
+                return
+            except AliyunCosyVoiceRetryableError as exc:
+                self._bad_voice_ids.add(voice)
+                last_error = exc
+                LOGGER.warning(
+                    "Aliyun CosyVoice voice failed before audio: voice=%s error=%s, retrying",
+                    voice,
+                    exc,
+                )
+                continue
+            except BaseException as exc:  # noqa: BLE001
+                last_error = exc
+                break
+
+        if last_error:
+            raise last_error
+
+    async def _synthesize_frames_once(
         self,
         rtc,
         chunks: list[str],
         voice: str,
+        *,
+        emotion: str = "",
+        emotion_strength: str = "strong",
+        mode: str = "auto",
+        speed: float | None = None,
+        instruct_text: str | None = None,
     ) -> AsyncIterator["rtc.AudioFrame"]:
+        async for pcm in self._stream_pcm_bytes_async(
+            chunks,
+            voice,
+            emotion=emotion,
+            emotion_strength=emotion_strength,
+            mode=mode,
+            speed=speed,
+            instruct_text=instruct_text,
+        ):
+            yield self._pcm_to_frame(rtc, pcm)
+
+    async def _stream_pcm_bytes_async(
+        self,
+        chunks: list[str],
+        voice: str,
+        *,
+        emotion: str = "",
+        emotion_strength: str = "strong",
+        mode: str = "auto",
+        speed: float | None = None,
+        instruct_text: str | None = None,
+    ) -> AsyncIterator[bytes]:
         audio_queue: asyncio.Queue[bytes | BaseException | None] = asyncio.Queue()
         text_queue: sync_queue.Queue[str | None] = sync_queue.Queue()
         loop = asyncio.get_running_loop()
@@ -175,15 +268,15 @@ class AliyunCosyVoiceTTS:
                     "voice": voice,
                     "format": AudioFormat.PCM_24000HZ_MONO_16BIT,
                     "volume": self.config.volume,
-                    "speech_rate": self.config.speech_rate,
+                    "speech_rate": speed or self.config.speech_rate,
                     "pitch_rate": self.config.pitch_rate,
                     "workspace": self.config.workspace_id,
                     "url": self.config.websocket_url,
                     "callback": Callback(),
                 }
-                if self.config.style_params_enabled:
-                    kwargs["instruction"] = self.config.instruction
-                    kwargs["language_hints"] = self.config.language_hints
+                if self.config.style_params_enabled or mode == "instruct2":
+                    kwargs["instruction"] = instruct_text or self.config.instruction
+                    kwargs["language_hints"] = self.config.language_hints or ["zh"]
 
                 LOGGER.info(
                     "Aliyun CosyVoice stream opening: model=%s voice=%s url=%s",
@@ -241,7 +334,132 @@ class AliyunCosyVoiceTTS:
                     raise item
                 if first_audio:
                     first_audio = False
-                yield self._pcm_to_frame(rtc, item)
+                yield item
+        finally:
+            if producer.is_alive():
+                text_queue.put(None)
+            producer.join(timeout=3)
+            worker.join(timeout=3)
+
+    def _stream_pcm_bytes(
+        self,
+        chunks: list[str],
+        voice: str,
+        *,
+        emotion: str = "",
+        emotion_strength: str = "strong",
+        mode: str = "auto",
+        speed: float | None = None,
+        instruct_text: str | None = None,
+    ) -> Iterator[bytes]:
+        audio_queue: sync_queue.Queue[bytes | BaseException | None] = sync_queue.Queue()
+        text_queue: sync_queue.Queue[str | None] = sync_queue.Queue()
+
+        def put_threadsafe(item: bytes | BaseException | None) -> None:
+            audio_queue.put(item)
+
+        def synthesize_worker() -> None:
+            try:
+                import dashscope
+                from dashscope.audio.tts_v2 import AudioFormat, ResultCallback, SpeechSynthesizer
+
+                dashscope.api_key = self.config.api_key
+                if self.config.websocket_url:
+                    dashscope.base_websocket_api_url = self.config.websocket_url
+
+                class Callback(ResultCallback):
+                    def on_data(self, data: bytes) -> None:
+                        nonlocal first_audio
+                        if first_audio:
+                            LOGGER.info("Aliyun CosyVoice first audio chunk received")
+                            first_audio = False
+                        put_threadsafe(data)
+
+                    def on_error(self, message: str) -> None:
+                        if first_audio:
+                            put_threadsafe(
+                                AliyunCosyVoiceRetryableError(
+                                    f"Aliyun CosyVoice TTS error before audio: {message}"
+                                )
+                            )
+                        else:
+                            put_threadsafe(RuntimeError(f"Aliyun CosyVoice TTS error: {message}"))
+
+                    def on_complete(self) -> None:
+                        put_threadsafe(None)
+
+                kwargs = {
+                    "model": self.config.model,
+                    "voice": voice,
+                    "format": AudioFormat.PCM_24000HZ_MONO_16BIT,
+                    "volume": self.config.volume,
+                    "speech_rate": speed or self.config.speech_rate,
+                    "pitch_rate": self.config.pitch_rate,
+                    "workspace": self.config.workspace_id,
+                    "url": self.config.websocket_url,
+                    "callback": Callback(),
+                }
+                if self.config.style_params_enabled or mode == "instruct2":
+                    kwargs["instruction"] = instruct_text or self.config.instruction
+                    kwargs["language_hints"] = self.config.language_hints or ["zh"]
+
+                LOGGER.info(
+                    "Aliyun CosyVoice stream opening: model=%s voice=%s url=%s",
+                    self.config.model,
+                    voice,
+                    self.config.websocket_url or "dashscope-default",
+                )
+                synthesizer = SpeechSynthesizer(**kwargs)
+                LOGGER.info("Aliyun CosyVoice stream ready")
+
+                sent_text = False
+                while True:
+                    chunk = text_queue.get()
+                    if chunk is None:
+                        break
+                    chunk = chunk.strip()
+                    if chunk:
+                        if not sent_text:
+                            LOGGER.info("Aliyun CosyVoice first text chunk sent")
+                            sent_text = True
+                        synthesizer.streaming_call(chunk)
+                if sent_text:
+                    synthesizer.streaming_complete()
+                else:
+                    put_threadsafe(None)
+            except BaseException as exc:  # noqa: BLE001
+                if first_audio:
+                    put_threadsafe(
+                        AliyunCosyVoiceRetryableError(f"Aliyun CosyVoice TTS error before audio: {exc}")
+                    )
+                else:
+                    put_threadsafe(exc)
+
+        def feed_chunks() -> None:
+            try:
+                for chunk in chunks:
+                    text_queue.put(chunk)
+            except BaseException as exc:  # noqa: BLE001
+                put_threadsafe(exc)
+            finally:
+                text_queue.put(None)
+
+        first_audio = True
+        worker = threading.Thread(target=synthesize_worker, daemon=True)
+        worker.start()
+        producer = threading.Thread(target=feed_chunks, daemon=True)
+        producer.start()
+
+        try:
+            while True:
+                item = audio_queue.get()
+                if item is None:
+                    break
+                if isinstance(item, BaseException):
+                    raise item
+                if first_audio:
+                    first_audio = False
+                yield item
         finally:
             if producer.is_alive():
                 text_queue.put(None)

@@ -373,6 +373,7 @@ class TanyueAssistant:
                 self._last_lip_sync_level = 0.0
                 self._pending_character_motion: str | None = None
                 self._pending_character_expression: str | None = None
+                self._pending_reply_text: str = ""
                 self._voice_model_active = False
                 super().__init__(
                     instructions=(
@@ -444,6 +445,7 @@ class TanyueAssistant:
                 self._speaking_expression = expression
                 self._pending_character_motion = motion
                 self._pending_character_expression = expression
+                self._pending_reply_text = reply
                 yield reply
 
             async def tts_node(self, text, model_settings):
@@ -455,6 +457,12 @@ class TanyueAssistant:
                 try:
                     async for frame in self._aliyun_tts.synthesize_frames(text):
                         if not motion_started:
+                            await self._publish_voice_state(
+                                True,
+                                voice_key=self._aliyun_tts.selected_voice_key,
+                                voice_id=self._aliyun_tts.selected_voice_id,
+                                reply_text=self._pending_reply_text,
+                            )
                             self._start_pending_character_motion(
                                 model_key=self._aliyun_tts.selected_voice_key,
                             )
@@ -473,6 +481,7 @@ class TanyueAssistant:
                     self._send_lip_sync_level(0.0, force=True)
                     self._reset_character_face()
                     self._restore_character_model()
+                    self._play_character_idle()
                     await self._publish_voice_state(False)
 
             def _start_pending_character_motion(self, model_key: str | None = None) -> None:
@@ -483,6 +492,7 @@ class TanyueAssistant:
                 if not motion:
                     return
                 self._play_character_motion(motion, expression, model_key=model_key)
+                self._pending_reply_text = ""
 
             def _clear_pending_character_motion(self) -> None:
                 self._pending_character_motion = None
@@ -603,19 +613,30 @@ class TanyueAssistant:
                 except Exception as exc:  # noqa: BLE001
                     LOGGER.debug("Character lip sync command skipped: %s", exc)
 
-            async def _publish_voice_state(self, speaking: bool) -> None:
+            async def _publish_voice_state(
+                self,
+                speaking: bool,
+                *,
+                voice_key: str | None = None,
+                voice_id: str | None = None,
+                reply_text: str | None = None,
+            ) -> None:
                 try:
                     local_participant = getattr(self._room, "local_participant", None)
                     if not local_participant:
                         return
+                    payload = {
+                        "type": "assistant_speaking",
+                        "speaking": speaking,
+                    }
+                    if voice_key:
+                        payload["voiceKey"] = voice_key
+                    if voice_id:
+                        payload["voiceId"] = voice_id
+                    if reply_text:
+                        payload["replyText"] = reply_text
                     await local_participant.publish_data(
-                        json.dumps(
-                            {
-                                "type": "assistant_speaking",
-                                "speaking": speaking,
-                            },
-                            ensure_ascii=False,
-                        ),
+                        json.dumps(payload, ensure_ascii=False),
                         reliable=True,
                         topic="tanyue.control",
                     )

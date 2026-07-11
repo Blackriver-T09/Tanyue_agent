@@ -145,10 +145,14 @@
         display: flex;
         flex-direction: column;
         flex: 1;
+        overflow: hidden;
       }
       .controls {
         padding: 14px 16px 10px;
         border-bottom: 1px solid var(--border);
+        flex: 0 0 auto;
+        max-height: 44vh;
+        overflow: auto;
       }
       label {
         display: block;
@@ -228,6 +232,7 @@
         font-size: 14px;
       }
       .call-state span {
+        display: block;
         color: var(--muted);
         font-size: 13px;
         line-height: 1.45;
@@ -255,15 +260,19 @@
         flex: 1;
         padding: 16px;
         overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
         font-size: 14px;
         line-height: 1.55;
       }
       .entry {
-        margin: 0 0 10px;
+        margin: 0;
         padding: 10px 12px;
         border-radius: 8px;
         background: #f3f6fa;
         white-space: pre-wrap;
+        word-break: break-word;
       }
       .entry.error {
         color: var(--error);
@@ -273,15 +282,17 @@
         color: var(--muted);
       }
       .entry.user {
-        margin-left: 48px;
         background: #eaf2ff;
       }
       .entry.agent {
-        margin-right: 48px;
         background: #f0fbf6;
       }
       audio {
-        display: none;
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
       }
       @media (max-width: 820px) {
         body {
@@ -357,6 +368,10 @@
               <button id="connect" class="primary">Connect</button>
               <button id="disconnect" disabled>Disconnect</button>
             </div>
+            <div class="field" style="margin-top: 14px;">
+              <label><input id="playLocalAudio" type="checkbox" checked /> 本机播放音频</label>
+              <label><input id="playRobotAudio" type="checkbox" /> 机器人播放音频</label>
+            </div>
             <p class="hint">
               Connect 会请求麦克风权限并加入 LiveKit 房间。Agent 后台请另开终端运行
               <code>python tanyue_agent.py start</code>。每轮语音会先识别梗，再交给在线 LLM 接梗回复。
@@ -364,6 +379,7 @@
             <div class="call-state">
               <strong id="callStateTitle">Not connected</strong>
               <span id="callStateText">连接后直接对着麦克风说话。</span>
+              <span id="playbackHint">本机播放开启。机器人播放关闭。</span>
               <div class="meter" aria-label="microphone level"><div id="micLevel"></div></div>
             </div>
           </div>
@@ -373,7 +389,7 @@
             <span id="identity"></span>
           </div>
           <div id="log"></div>
-          <audio id="remoteAudio" autoplay></audio>
+          <audio id="remoteAudio" autoplay preload="auto"></audio>
         </div>
       </aside>
     </main>
@@ -395,8 +411,11 @@
       const nameInput = document.querySelector("#name");
       const callStateTitle = document.querySelector("#callStateTitle");
       const callStateText = document.querySelector("#callStateText");
+      const playbackHintEl = document.querySelector("#playbackHint");
       const micLevelEl = document.querySelector("#micLevel");
       const toggleDebugBtn = document.querySelector("#toggleDebug");
+      const playLocalAudioEl = document.querySelector("#playLocalAudio");
+      const playRobotAudioEl = document.querySelector("#playRobotAudio");
 
       let room = null;
       let micTrack = null;
@@ -407,6 +426,28 @@
       let micSafetyResumeTimer = null;
       let micPausedByAssistant = false;
       let lastStatusLine = "";
+      let lastTranscriptKey = "";
+      let localPlaybackEnabled = true;
+      let robotPlaybackEnabled = false;
+      let waitingForAssistantResponse = false;
+      let assistantAudioSpeaking = false;
+      let robotPlaybackInProgress = false;
+      let latestAssistantVoiceKey = "";
+      let latestAssistantVoiceId = "";
+      let lastRobotPlaybackKey = "";
+
+      function loadPlaybackPreferences() {
+        const storedLocal = window.localStorage.getItem("tanyue.localPlaybackEnabled");
+        const storedRobot = window.localStorage.getItem("tanyue.robotPlaybackEnabled");
+        if (storedLocal != null) {
+          localPlaybackEnabled = storedLocal !== "0";
+          playLocalAudioEl.checked = localPlaybackEnabled;
+        }
+        if (storedRobot != null) {
+          robotPlaybackEnabled = storedRobot === "1";
+          playRobotAudioEl.checked = robotPlaybackEnabled;
+        }
+      }
 
       function setStatus(text, className = "") {
         statusEl.textContent = text;
@@ -426,8 +467,37 @@
         callStateText.textContent = text;
       }
 
+      function updatePlaybackHint() {
+        const localText = localPlaybackEnabled ? "本机播放开启" : "本机播放关闭";
+        const robotText = robotPlaybackEnabled ? "机器人播放已选中" : "机器人播放关闭";
+        const caution = robotPlaybackEnabled
+          ? "收到最终回复后会额外尝试触发机器人播报。"
+          : "";
+        playbackHintEl.textContent = `${localText}。${robotText}。${caution}`;
+        if (audioEl) {
+          audioEl.muted = !localPlaybackEnabled;
+          audioEl.volume = localPlaybackEnabled ? 1 : 0;
+          audioEl.autoplay = true;
+          audioEl.playsInline = true;
+        }
+        window.localStorage.setItem("tanyue.localPlaybackEnabled", localPlaybackEnabled ? "1" : "0");
+        window.localStorage.setItem("tanyue.robotPlaybackEnabled", robotPlaybackEnabled ? "1" : "0");
+        window.dispatchEvent(
+          new CustomEvent("tanyue:playback-settings", {
+            detail: {
+              localPlaybackEnabled,
+              robotPlaybackEnabled,
+            },
+          }),
+        );
+      }
+
       async function setMicInputPaused(paused, reason = "") {
         if (!micTrack) return;
+        if (!paused && shouldHoldMicInput()) {
+          setCallState("Input paused", micPauseReason());
+          return;
+        }
         if (paused === micPausedByAssistant) return;
         micPausedByAssistant = paused;
         const stateBox = callStateTitle.closest(".call-state");
@@ -457,10 +527,29 @@
       function scheduleMicResume(delayMs = 700) {
         if (micResumeTimer) window.clearTimeout(micResumeTimer);
         micResumeTimer = window.setTimeout(() => {
-          setMicInputPaused(false).catch((err) => {
-            log(err instanceof Error ? err.message : String(err), "error");
-          });
+          releaseMicInputIfReady();
         }, delayMs);
+      }
+
+      function shouldHoldMicInput() {
+        return waitingForAssistantResponse || assistantAudioSpeaking || robotPlaybackInProgress;
+      }
+
+      function micPauseReason() {
+        if (robotPlaybackInProgress) return "机器人正在播报，已暂停麦克风输入。";
+        if (assistantAudioSpeaking) return "Agent 正在说话，已暂停麦克风输入。";
+        if (waitingForAssistantResponse) return "已收到你的话，正在等待回复，麦克风暂时静音。";
+        return "麦克风暂时静音。";
+      }
+
+      function releaseMicInputIfReady() {
+        if (shouldHoldMicInput()) {
+          setCallState("Input paused", micPauseReason());
+          return;
+        }
+        setMicInputPaused(false).catch((err) => {
+          log(err instanceof Error ? err.message : String(err), "error");
+        });
       }
 
       function handleControlMessage(text) {
@@ -471,18 +560,29 @@
           return false;
         }
         if (data?.type !== "assistant_speaking") return false;
+        if (data.voiceKey) latestAssistantVoiceKey = data.voiceKey;
+        if (data.voiceId) latestAssistantVoiceId = data.voiceId;
         if (data.speaking) {
+          assistantAudioSpeaking = true;
+          waitingForAssistantResponse = false;
           if (micResumeTimer) window.clearTimeout(micResumeTimer);
           if (micSafetyResumeTimer) window.clearTimeout(micSafetyResumeTimer);
           setMicInputPaused(true, "Agent 正在生成语音，已暂停麦克风输入。").catch((err) => {
             log(err instanceof Error ? err.message : String(err), "error");
           });
-          micSafetyResumeTimer = window.setTimeout(() => {
-            setMicInputPaused(false, "保护超时，已恢复麦克风输入。").catch((err) => {
-              log(err instanceof Error ? err.message : String(err), "error");
+          if (data.replyText) {
+            relayAssistantToRobot(data.replyText, {
+              voiceKey: data.voiceKey || latestAssistantVoiceKey,
+              voiceId: data.voiceId || latestAssistantVoiceId,
             });
+          }
+          micSafetyResumeTimer = window.setTimeout(() => {
+            assistantAudioSpeaking = false;
+            waitingForAssistantResponse = false;
+            releaseMicInputIfReady();
           }, 30000);
         } else {
+          assistantAudioSpeaking = false;
           if (micSafetyResumeTimer) {
             window.clearTimeout(micSafetyResumeTimer);
             micSafetyResumeTimer = null;
@@ -496,11 +596,64 @@
         return participant?.name || participant?.identity || "participant";
       }
 
+      function transcriptKey(text) {
+        return String(text || "")
+          .toLowerCase()
+          .replace(/\s+/g, "")
+          .replace(/[。！？!?.,，；;:："'`~·、()（）【】\[\]{}<>]/g, "");
+      }
+
       function logTranscript(text, participant, final = false) {
         const name = participantName(participant);
         const isUser = room && participant?.identity === room.localParticipant.identity;
         const kind = isUser ? "user" : "agent";
+        const key = `${participant?.identity || kind}:${transcriptKey(text)}`;
+        if (final && key === lastTranscriptKey) return;
+        if (final) lastTranscriptKey = key;
         log(`${isUser ? "你" : name}${final ? "" : " ..."}\n${text}`, kind);
+      }
+
+      async function relayAssistantToRobot(text, options = {}) {
+        if (!robotPlaybackEnabled) return;
+        const content = String(text || "").trim();
+        if (!content) return;
+        const voiceKey = options.voiceKey || latestAssistantVoiceKey || "";
+        const voiceId = options.voiceId || latestAssistantVoiceId || "";
+        const playbackKey = `${transcriptKey(content)}:${voiceKey || voiceId || "default"}`;
+        if (playbackKey === lastRobotPlaybackKey) return;
+        lastRobotPlaybackKey = playbackKey;
+        robotPlaybackInProgress = true;
+        if (micResumeTimer) window.clearTimeout(micResumeTimer);
+        await setMicInputPaused(true, "机器人正在播报，已暂停麦克风输入。");
+        try {
+          const res = await fetch("/api/robot-playback", {
+            method: "POST",
+            headers: { "Content-Type": "application/json; charset=utf-8" },
+            body: JSON.stringify({
+              text: content,
+              room: roomInput.value.trim() || "tanyue-room",
+              voice_key: voiceKey,
+              voice_id: voiceId,
+            }),
+          });
+          if (!res.ok) {
+            throw new Error(await res.text());
+          }
+          const data = await res.json();
+          if (data.status !== "ok") {
+            const stage = data.stage ? ` ${data.stage}` : "";
+            log(`robot playback ${data.status}${stage}: ${data.reason || "unknown"}`, "error");
+            return;
+          }
+          log(
+            `robot playback ok: interface=${data.interface || "-"} volume=${data.volume ?? "-"} voice=${data.voice || "-"}`
+          );
+        } catch (err) {
+          log(err instanceof Error ? err.message : String(err), "error");
+        } finally {
+          robotPlaybackInProgress = false;
+          scheduleMicResume(350);
+        }
       }
 
       async function dispatchAgent(roomName) {
@@ -530,7 +683,7 @@
         }).join(", ") || "none";
         const statusLine = `participants: ${identities.join(", ") || "none"}\ndispatches: ${dispatchLabel}`;
 
-        if (hasAgent && !micPausedByAssistant) {
+        if (hasAgent && !micPausedByAssistant && !shouldHoldMicInput()) {
           setCallState("Listening", `Agent 已加入。请直接说话，麦克风电平跳动时表示浏览器正在采集声音。`);
         } else if (!hasAgent) {
           setCallState("Waiting for agent", `已请求 Agent，但房间里暂时只有你。dispatch=${dispatchLabel}`);
@@ -614,6 +767,10 @@
           room.on(RoomEvent.TrackSubscribed, (track) => {
             if (track.kind === "audio") {
               track.attach(audioEl);
+              audioEl.load();
+              audioEl.play().catch((err) => {
+                log(err instanceof Error ? err.message : String(err), "error");
+              });
               log("assistant audio subscribed");
             }
           });
@@ -654,12 +811,23 @@
                 const isFinal = segment.final || segment.isFinal;
                 if (text && isFinal) {
                   logTranscript(text, participant, true);
+                  if (participant && participant.identity === room.localParticipant.identity) {
+                    waitingForAssistantResponse = true;
+                    if (micResumeTimer) window.clearTimeout(micResumeTimer);
+                    setMicInputPaused(true, "已收到你的话，正在等待回复，麦克风暂时静音。").catch((err) => {
+                      log(err instanceof Error ? err.message : String(err), "error");
+                    });
+                  } else {
+                    waitingForAssistantResponse = false;
+                    relayAssistantToRobot(text);
+                  }
                 }
               }
             });
           }
 
           await room.connect(data.url, data.token);
+          updatePlaybackHint();
           micTrack = await createLocalAudioTrack({
             echoCancellation: { ideal: true },
             noiseSuppression: { ideal: true },
@@ -713,12 +881,22 @@
 
       connectBtn.addEventListener("click", connect);
       disconnectBtn.addEventListener("click", disconnect);
+      playLocalAudioEl.addEventListener("change", () => {
+        localPlaybackEnabled = playLocalAudioEl.checked;
+        updatePlaybackHint();
+      });
+      playRobotAudioEl.addEventListener("change", () => {
+        robotPlaybackEnabled = playRobotAudioEl.checked;
+        updatePlaybackHint();
+      });
       toggleDebugBtn.addEventListener("click", () => {
         document.body.classList.toggle("debug-collapsed");
         const collapsed = document.body.classList.contains("debug-collapsed");
         toggleDebugBtn.textContent = collapsed ? "‹" : "›";
         toggleDebugBtn.title = collapsed ? "Open debug panel" : "Close debug panel";
       });
+      loadPlaybackPreferences();
+      updatePlaybackHint();
       log("ready · meme_play");
     </script>
   </body>

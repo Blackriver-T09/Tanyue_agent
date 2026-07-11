@@ -223,7 +223,7 @@ Tanyue job accepted ... qwen_thinking=False ... cosyvoice_model=cosyvoice-v3.5-p
 Aliyun STT stream connected
 ```
 
-Agent 会把 `character/motions/manifest.json` 中的动作说明加入提示词，并读取当前 VRM 模型中的预设表情。Qwen 每次回复会生成 `reply`、`motion` 和 `expression`，Agent 会在朗读 `reply` 的同时通过 `TANYUE_CHARACTER_BRIDGE_URL` 发送动作和表情给角色页面。当前还会把这轮 TTS 选中的 voice key 传给角色桥接层，临时切到同名 VRM，例如 `dingzhen.wav` 播放期间使用 `dingzhen.vrm`，播放结束后恢复默认模型。表情强度默认使用 `1.0`，并保持到本轮语音播放结束；结束后回到 `relaxed`。随音量开合嘴巴现在默认关闭，后续需要时可以重新打开。
+Agent 会把 `character/motions/manifest.json` 中的动作说明加入提示词，并读取当前 VRM 模型中的预设表情。侧边栏新增 `本机播放音频` 和 `机器人播放音频` 两个复选框：前者控制浏览器本地是否播放助理语音，后者当前仅作为机器人通道的占位开关，尚未真正接入机器人。Qwen 每次回复会生成 `reply`、`motion` 和 `expression`，Agent 会在朗读 `reply` 的同时通过 `TANYUE_CHARACTER_BRIDGE_URL` 发送动作和表情给角色页面。当前还会把这轮 TTS 选中的 voice key 传给角色桥接层，临时切到同名 VRM，例如 `dingzhen.wav` 播放期间使用 `dingzhen.vrm`，播放结束后恢复默认模型。表情强度默认使用 `1.0`，并保持到本轮语音播放结束；结束后回到 `relaxed`。随音量开合嘴巴现在默认关闭，后续需要时可以重新打开。
 
 表情和口型相关参数：
 

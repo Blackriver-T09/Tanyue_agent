@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib
 import json
+import logging
 import os
 import sys
 import uuid
 from pathlib import Path
 
+LOGGER = logging.getLogger("tanyue.web")
 PROJECT_ROOT = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -26,6 +29,39 @@ os.environ.setdefault("LIVEKIT_LOG_LEVEL", "info")
 os.environ.setdefault("LIVEKIT_URL", "ws://127.0.0.1:7880")
 os.environ.setdefault("LIVEKIT_API_KEY", "devkey")
 os.environ.setdefault("LIVEKIT_API_SECRET", "devsecret")
+
+
+def load_project_config():
+    try:
+        return importlib.import_module("Config")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def ensure_dashscope_env() -> str:
+    config = load_project_config()
+    api_key = os.environ.get("DASHSCOPE_API_KEY") or getattr(config, "API_KEY", None)
+    if not api_key:
+        raise RuntimeError("Missing DashScope API key. Set DASHSCOPE_API_KEY or Config.py API_KEY.")
+    os.environ["DASHSCOPE_API_KEY"] = api_key
+
+    workspace_id = (
+        os.environ.get("DASHSCOPE_WORKSPACE_ID")
+        or getattr(config, "DASHSCOPE_WORKSPACE_ID", None)
+        or getattr(config, "WORKSPACE_ID", None)
+        or getattr(config, "WORKSAPCE_ID", None)
+    )
+    if workspace_id:
+        os.environ["DASHSCOPE_WORKSPACE_ID"] = workspace_id
+
+    api_host = os.environ.get("DASHSCOPE_API_HOST") or getattr(config, "API_HOST", None)
+    if api_host:
+        os.environ["DASHSCOPE_API_HOST"] = api_host
+
+    region = os.environ.get("DASHSCOPE_REGION") or getattr(config, "DASHSCOPE_REGION", None)
+    if region:
+        os.environ["DASHSCOPE_REGION"] = region
+    return api_key
 
 
 def run_livekit_agent() -> None:
@@ -46,6 +82,7 @@ def require_env(name: str) -> str:
 
 def create_app():
     from fastapi import FastAPI
+    from fastapi import Body
     from fastapi.responses import HTMLResponse, Response
     from fastapi.staticfiles import StaticFiles
     from livekit.api import (
@@ -142,6 +179,173 @@ def create_app():
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    def get_robot_runtime():
+        interface = (
+            os.environ.get("TANYUE_ROBOT_INTERFACE")
+            or os.environ.get("TANYUE_ROBOT_DEFAULT_INTERFACE")
+            or "en7"
+        ).strip()
+        if not interface:
+            return None
+        runtime = getattr(app.state, "robot_runtime", None)
+        if runtime is not None:
+            return runtime
+
+        from robot_voice.unitree_g1_voice import UnitreeG1Voice, apply_gain_s16le_stream
+        from robot_voice.stream_tts_to_robot import stream_text_to_robot
+        from robot_voice.voice_registry import load_voice_registry, resolve_voice
+        from voice.tanyue_livekit.aliyun_cosyvoice import AliyunCosyVoiceTTS, config_from_env
+
+        api_key = ensure_dashscope_env()
+        robot = UnitreeG1Voice(interface, timeout=float(os.environ.get("TANYUE_ROBOT_TIMEOUT", "5.0")))
+        robot.connect()
+        try:
+            current_volume = robot.get_volume()
+            LOGGER.info("Robot voice volume before playback: %s", current_volume)
+            if current_volume <= 0:
+                fallback_volume = int(float(os.environ.get("TANYUE_ROBOT_DEFAULT_VOLUME", "85")))
+                robot.set_volume(fallback_volume)
+                LOGGER.info("Robot voice volume auto-raised to: %s", fallback_volume)
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.info("Could not query robot volume: %s", exc)
+        volume = os.environ.get("TANYUE_ROBOT_VOLUME")
+        target_volume = max(0, min(100, int(float(volume)))) if volume is not None and volume.strip() else 100
+        robot.set_volume(target_volume)
+        LOGGER.info("Robot voice volume set to: %s", target_volume)
+
+        tts = AliyunCosyVoiceTTS(config_from_env(api_key=api_key))
+        if tts.config.clone_enabled:
+            tts.ensure_cloned_voice()
+        default_voice_key = os.environ.get("TANYUE_ROBOT_VOICE", "default")
+        default_voice = resolve_voice(default_voice_key, load_voice_registry())
+
+        runtime = {
+            "interface": interface,
+            "robot": robot,
+            "tts": tts,
+            "voice_id": default_voice.registered_voice_id,
+            "voice_key": default_voice.key,
+            "app_name": os.environ.get("TANYUE_ROBOT_APP_NAME", "tanyue"),
+            "emotion": os.environ.get("TANYUE_ROBOT_EMOTION", ""),
+            "emotion_strength": os.environ.get("TANYUE_ROBOT_EMOTION_STRENGTH", "strong"),
+            "mode": os.environ.get("TANYUE_ROBOT_TTS_MODE", "auto"),
+            "speed": float(os.environ.get("TANYUE_ROBOT_SPEED", "1.0")),
+            "gain_db": float(os.environ.get("TANYUE_ROBOT_GAIN_DB", "6.0")),
+            "trim_start_ms": float(os.environ.get("TANYUE_ROBOT_TRIM_START_MS", "0.0")),
+            "robot_chunk_bytes": int(os.environ.get("TANYUE_ROBOT_CHUNK_BYTES", "96000")),
+            "tail_wait_ms": float(os.environ.get("TANYUE_ROBOT_TAIL_WAIT_MS", "1000.0")),
+            "send_interval_ms": (
+                float(os.environ["TANYUE_ROBOT_SEND_INTERVAL_MS"])
+                if os.environ.get("TANYUE_ROBOT_SEND_INTERVAL_MS")
+                else None
+            ),
+            "gain": apply_gain_s16le_stream,
+            "stream_text_to_robot": stream_text_to_robot,
+            "verbose": os.environ.get("TANYUE_ROBOT_VERBOSE", "0") in {"1", "true", "True", "yes", "on"},
+        }
+        app.state.robot_runtime = runtime
+        return runtime
+
+    def resolve_robot_voice(value: str | None, fallback_id: str, fallback_key: str) -> tuple[str, str]:
+        value = str(value or "").strip()
+        if not value:
+            return fallback_id, fallback_key
+        try:
+            from robot_voice.voice_registry import load_voice_registry, resolve_voice
+
+            entry = resolve_voice(value, load_voice_registry())
+            return entry.registered_voice_id, entry.key
+        except Exception:
+            pass
+
+        voice_registry_path = PROJECT_ROOT / "voice" / "cosyvoice_voices.json"
+        try:
+            payload = json.loads(voice_registry_path.read_text(encoding="utf-8"))
+            for item in payload.get("voices", []):
+                key = str(item.get("key") or "").strip()
+                voice_id = str(item.get("registered_voice_id") or "").strip()
+                if value in {key, voice_id} and voice_id:
+                    return voice_id, key or value
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug("Could not resolve voice from %s: %s", voice_registry_path, exc)
+
+        if value.startswith("cosyvoice-"):
+            return value, value
+        return fallback_id, fallback_key
+
+    @app.post("/api/robot-playback")
+    async def robot_playback(payload: dict[str, Any] = Body(default_factory=dict)) -> dict[str, Any]:
+        text = str(payload.get("text") or "").strip()
+        if not text:
+            return {"status": "ignored", "reason": "empty text"}
+        try:
+            runtime = get_robot_runtime()
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Robot runtime init failed")
+            return {
+                "status": "error",
+                "stage": "init",
+                "reason": f"{type(exc).__name__}: {exc}",
+            }
+        if runtime is None:
+            return {"status": "disabled", "reason": "robot interface is not configured"}
+        requested_voice = (
+            payload.get("voice_id")
+            or payload.get("voiceId")
+            or payload.get("voice_key")
+            or payload.get("voiceKey")
+        )
+        voice_id, voice_key = resolve_robot_voice(
+            str(requested_voice or ""),
+            runtime["voice_id"],
+            runtime["voice_key"],
+        )
+
+        def _play() -> None:
+            LOGGER.info(
+                "Robot playback start: interface=%s voice=%s text=%s",
+                runtime["interface"],
+                voice_key,
+                text[:120],
+            )
+            runtime["stream_text_to_robot"](
+                runtime["tts"],
+                runtime["robot"],
+                text,
+                runtime["emotion"],
+                runtime["emotion_strength"],
+                runtime["mode"],
+                runtime["speed"],
+                voice_id,
+                runtime["app_name"],
+                runtime["send_interval_ms"],
+                runtime["tail_wait_ms"],
+                runtime["gain_db"],
+                runtime["trim_start_ms"],
+                runtime["robot_chunk_bytes"],
+                runtime["verbose"],
+            )
+            LOGGER.info("Robot playback finished: text=%s", text[:120])
+
+        try:
+            await asyncio.to_thread(_play)
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Robot playback failed")
+            return {
+                "status": "error",
+                "stage": "playback",
+                "reason": f"{type(exc).__name__}: {exc}",
+                "interface": runtime["interface"],
+                "voice": voice_key,
+            }
+        return {
+            "status": "ok",
+            "text": text[:80],
+            "volume": runtime["robot"].get_volume(),
+            "interface": runtime["interface"],
+            "voice": voice_key,
+        }
 
     @app.get("/api/livekit-status")
     async def livekit_status(room: str = "tanyue-room") -> dict:
