@@ -452,7 +452,6 @@ class TanyueAssistant:
                 self._pending_character_motion = motion
                 self._pending_character_expression = expression
                 self._pending_reply_text = reply
-                self._aliyun_tts.set_voice_key(self._pending_voice_key)
                 yield reply
 
             async def tts_node(self, text, model_settings):
@@ -462,7 +461,10 @@ class TanyueAssistant:
                 was_cancelled = False
                 motion_started = False
                 try:
-                    async for frame in self._aliyun_tts.synthesize_frames(text):
+                    async for frame in self._aliyun_tts.synthesize_frames(
+                        text,
+                        voice_key=self._pending_voice_key,
+                    ):
                         if not motion_started:
                             await self._publish_voice_state(
                                 True,
@@ -489,7 +491,6 @@ class TanyueAssistant:
                     self._reset_character_face()
                     self._restore_character_model()
                     self._play_character_idle()
-                    self._aliyun_tts.clear_voice_key()
                     self._pending_voice_key = None
                     await self._publish_voice_state(False)
 

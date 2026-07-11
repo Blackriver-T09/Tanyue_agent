@@ -114,7 +114,12 @@ class AliyunCosyVoiceTTS:
     def clear_voice_key(self) -> None:
         self._forced_voice_key = None
 
-    async def synthesize_frames(self, text: AsyncIterable[str]) -> AsyncIterator["rtc.AudioFrame"]:
+    async def synthesize_frames(
+        self,
+        text: AsyncIterable[str],
+        *,
+        voice_key: str | None = None,
+    ) -> AsyncIterator["rtc.AudioFrame"]:
         from livekit import rtc
 
         chunks: list[str] = []
@@ -124,7 +129,7 @@ class AliyunCosyVoiceTTS:
         if not chunks:
             return
 
-        candidates = self._voice_candidates()
+        candidates = self._voice_candidates(voice_key=voice_key)
         last_error: BaseException | None = None
         for voice, voice_key in candidates:
             self._selected_voice_id = voice
@@ -515,18 +520,23 @@ class AliyunCosyVoiceTTS:
     def _voice_key_for_id(self, voice_id: str) -> str | None:
         return self._voice_key_by_id.get(voice_id)
 
-    def _voice_candidates(self) -> list[tuple[str, str | None]]:
-        if self._forced_voice_key:
-            voice_id = self._voice_id_by_key.get(self._forced_voice_key)
+    def _voice_candidates(self, *, voice_key: str | None = None) -> list[tuple[str, str | None]]:
+        if voice_key:
+            return self._voice_candidates_for_key(voice_key)
+        return self._voice_candidates_for_key(self._forced_voice_key)
+
+    def _voice_candidates_for_key(self, voice_key: str | None) -> list[tuple[str, str | None]]:
+        if voice_key:
+            voice_id = self._voice_id_by_key.get(voice_key)
             if not voice_id:
                 raise RuntimeError(
-                    f"Forced CosyVoice key {self._forced_voice_key!r} is not registered"
+                    f"Forced CosyVoice key {voice_key!r} is not registered"
                 )
             if voice_id in self._bad_voice_ids:
                 raise RuntimeError(
-                    f"Forced CosyVoice voice {self._forced_voice_key!r} failed earlier in this session"
+                    f"Forced CosyVoice voice {voice_key!r} failed earlier in this session"
                 )
-            return [(voice_id, self._forced_voice_key)]
+            return [(voice_id, voice_key)]
 
         pool = [item for item in self.config.voice_pool if item and item not in self._bad_voice_ids]
         if self.config.voice and self.config.voice not in pool and self.config.voice not in self._bad_voice_ids:
